@@ -11,7 +11,7 @@ fn main() -> anyhow::Result<()> {
     } = CommandLineArgs::from_args();
 
     match action {
-        Spy { url } => repos::spy_repo(url),
+        Spy { url, username, token } => repos::spy_repo(url, username, token),
     }?;
 
     Ok(())

@@ -7,6 +7,10 @@ pub enum Action {
         /// The remote git repo to watch for changes
         #[structopt()]
         url: String,
+        #[structopt(short, long)]
+        username: String,
+        #[structopt(short, long)]
+        token: String,
     },
 }
 
