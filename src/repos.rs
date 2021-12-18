@@ -25,15 +25,15 @@ pub fn spy_repo(url: String, username: Option<String>, token: Option<String>) ->
     let parsed_url = Url::parse(&url);
 
     match parsed_url {
-        Ok(mut url) => {
+        Ok(mut parsed_url) => {
 
             if let Some(username) = username {
-                if let Err(e) = url.set_username(&username) { panic!("Error: {:?}", e) };
+                if let Err(e) = parsed_url.set_username(&username) { panic!("Error: {:?}", e) };
             }
 
             if let Some(token) = token {
                 let token_str: &str = &token[..];
-                if let Err(e) = url.set_password(Option::from(token_str)) { panic!("Error: {:?}", e) };
+                if let Err(e) = parsed_url.set_password(Option::from(token_str)) { panic!("Error: {:?}", e) };
             }
 
             // Get a temp directory to do work in
@@ -44,12 +44,12 @@ pub fn spy_repo(url: String, username: Option<String>, token: Option<String>) ->
             let tmp_dir_name = format!("{}", Uuid::new_v4());
             local_path.push_str(&String::from(tmp_dir_name));
 
-            let cloned_repo = match Repository:: clone(url.as_str(), local_path) {
+            let cloned_repo = match Repository:: clone(parsed_url.as_str(), local_path) {
                 Ok(repo) => repo,
                 Err(e) => panic!("Error: Failed to clone {}", e),
             };
-            let repo = Repo::new(String::from(url.as_str()), String::from(cloned_repo.path().to_str().unwrap()));
-            println!("Spying repo: {:?}", repo);
+            let repo = Repo::new(String::from(parsed_url.as_str()), String::from(cloned_repo.path().to_str().unwrap()));
+            println!("Spying repo {:?} at {:?}", url, repo.local_path);
             Ok(())
         },
         Err(e) => Err(Error::new(ErrorKind::InvalidData, format!("Invalid URL {}", e))),

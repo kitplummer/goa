@@ -19,6 +19,6 @@ fn test_spy_repo_command_good_url() -> Result<(), Box<dyn std::error::Error>> {
     cmd.arg("spy");
     cmd.arg("https://github.com/gtri/lowendinsight");
     cmd.assert()
-        .stdout(predicates::str::contains("Spying repo:"));
+        .stdout(predicates::str::contains("Spying repo \"https://github.com/gtri/lowendinsight\""));
     Ok(())
 }
