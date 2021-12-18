@@ -8,9 +8,9 @@ pub enum Action {
         #[structopt()]
         url: String,
         #[structopt(short, long)]
-        username: String,
+        username: Option<String>,
         #[structopt(short, long)]
-        token: String,
+        token: Option<String>,
     },
 }
 
