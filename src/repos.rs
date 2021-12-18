@@ -1,26 +1,28 @@
-use std::io::Result;
-use std::io;
+use std::env::temp_dir;
+use std::io::{Error, ErrorKind, Result};
 
 use git2::Repository;
+use uuid::Uuid;
 use url::Url;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Repo {
     pub url: String,
     pub status: String,
+    pub local_path: String,
 }
 
 impl Repo {
-    pub fn new(url: String) -> Repo {
+    pub fn new(url: String, local_path: String) -> Repo {
+        // We'll initialize after the clone is successful.
         let status = String::from("cloned");
-
-        Repo { url, status }
+        Repo { url, status, local_path }
     }
 }
 
 pub fn spy_repo(url: String, username: Option<String>, token: Option<String>) -> Result<()> {
+
     let parsed_url = Url::parse(&url);
-    //let token = token.to_owned();
 
     match parsed_url {
         Ok(mut url) => {
@@ -34,20 +36,23 @@ pub fn spy_repo(url: String, username: Option<String>, token: Option<String>) ->
                 if let Err(e) = url.set_password(Option::from(token_str)) { panic!("Error: {:?}", e) };
             }
 
-            let path_vec = url.path_segments().map(|c| c.collect::<Vec<_>>());
-            let last = path_vec.unwrap();
-            let last = last.last();
-            let mut target_path: String = "/tmp/goa_wd/".to_owned();
-            target_path.push_str(last.unwrap());
-            let _cloned_repo = match Repository:: clone(url.as_str(), target_path) {
+            // Get a temp directory to do work in
+            let temp_dir = temp_dir();
+            let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
+            local_path.push_str("/goa_wd/");
+
+            let tmp_dir_name = format!("{}", Uuid::new_v4());
+            local_path.push_str(&String::from(tmp_dir_name));
+
+            let cloned_repo = match Repository:: clone(url.as_str(), local_path) {
                 Ok(repo) => repo,
                 Err(e) => panic!("Error: Failed to clone {}", e),
             };
-            let repo = Repo::new(String::from(url.as_str()));
+            let repo = Repo::new(String::from(url.as_str()), String::from(cloned_repo.path().to_str().unwrap()));
             println!("Spying repo: {:?}", repo);
             Ok(())
         },
-        Err(e) => Err(io::Error::new(io::ErrorKind::InvalidData, format!("Invalid URL {}", e))),
+        Err(e) => Err(Error::new(ErrorKind::InvalidData, format!("Invalid URL {}", e))),
     }
 }
 
@@ -62,7 +67,7 @@ mod tests {
     #[test]
     fn test_spy_repo_with_bad_url() {
         let res = spy_repo(String::from("test"), Some(String::from("test")), Some(String::from("test"))).map_err(|e| e.kind());
-        assert_eq!(Err(io::ErrorKind::InvalidData), res);
+        assert_eq!(Err(ErrorKind::InvalidData), res);
     }
 
     #[test]

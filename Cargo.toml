@@ -12,3 +12,4 @@ url = "2.2"
 assert_cmd = "2.0"
 predicates = "2.1"
 git2 = "0.13"
+uuid = { version = "0.8.2", features = ["serde", "v4"] }
