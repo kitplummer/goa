@@ -1,5 +1,10 @@
 use std::env::temp_dir;
 use std::io::{Error, ErrorKind, Result};
+use std::thread;
+use std::time::Duration;
+
+// Scheduler, and trait for .seconds(), .minutes(), etc.
+use clokwerk::{Scheduler, TimeUnits};
 
 use git2::Repository;
 use uuid::Uuid;
@@ -66,7 +71,15 @@ pub fn spy_repo(url: String, branch: String, delay: u16, username: Option<String
 
 pub fn spy_for_changes(url: String, branch: String, delay: u16) {
     println!("Checking for changes on {}:{} every {} seconds", url, branch, delay);
-    //todo!("implement clokwerk scheduler task for checking for changes.");
+    // Create a new scheduler
+    let mut scheduler = Scheduler::new();
+    // Add some tasks to it
+    scheduler.every(1.minutes()).plus(30.seconds()).run(|| println!("Periodic task"));
+    // Manually run the scheduler in an event loop
+    loop {
+        scheduler.run_pending();
+        thread::sleep(Duration::from_millis(10));
+    }
 }
 
 #[cfg(test)]
