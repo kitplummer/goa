@@ -24,7 +24,7 @@ impl Repo {
     // }
 }
 
-pub fn spy_repo(url: String, username: Option<String>, token: Option<String>) -> Result<()> {
+pub fn spy_repo(url: String, branch: String, delay: u16, username: Option<String>, token: Option<String>) -> Result<()> {
 
     let parsed_url = Url::parse(&url);
 
@@ -54,10 +54,19 @@ pub fn spy_repo(url: String, username: Option<String>, token: Option<String>) ->
             };
             let repo = Repo::new(String::from(parsed_url.as_str()), String::from(cloned_repo.path().to_str().unwrap()));
             println!("Spying repo {:?} at {:?}", url, repo.local_path);
+
+            // This is where the loop happens...
+            spy_for_changes(url, branch, delay);
+
             Ok(())
         },
         Err(e) => Err(Error::new(ErrorKind::InvalidData, format!("Invalid URL {}", e))),
     }
+}
+
+pub fn spy_for_changes(url: String, branch: String, delay: u16) {
+    println!("Checking for changes on {}:{} every {} seconds", url, branch, delay);
+    //todo!("implement clokwerk scheduler task for checking for changes.");
 }
 
 #[cfg(test)]
@@ -65,12 +74,25 @@ mod tests {
     use super::*;
     #[test]
     fn test_spy_repo_with_good_url() {
-        assert!(spy_repo(String::from("https://github.com/kitplummer/clikan"), Some(String::from("")), Some(String::from(""))).is_ok());
+        assert!(spy_repo(
+            String::from("https://github.com/kitplummer/clikan"),
+            String::from("branch"),
+            120,
+            Some(String::from("")),
+            Some(String::from(""))
+        ).is_ok());
     }
 
     #[test]
     fn test_spy_repo_with_bad_url() {
-        let res = spy_repo(String::from("test"), Some(String::from("test")), Some(String::from("test"))).map_err(|e| e.kind());
+        let res = spy_repo(
+            String::from("test"),
+            String::from("branch"),
+            120,
+            Some(String::from("test")),
+            Some(String::from("test"))
+        ).map_err(|e| e.kind());
+
         assert_eq!(Err(ErrorKind::InvalidData), res);
     }
 

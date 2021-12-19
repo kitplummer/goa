@@ -7,8 +7,16 @@ pub enum Action {
         /// The remote git repo to watch for changes
         #[structopt()]
         url: String,
+        /// The branch of the remote git repo to watch for changes
+        #[structopt(short, long, default_value = "main")]
+        branch: String,
+        /// The time between checks in seconds, default is 120, max 65535
+        #[structopt(short, long, default_value = "120")]
+        delay: u16,
+        /// Username, owner of the token - required for private repos
         #[structopt(short, long)]
         username: Option<String>,
+        /// The access token for cloning and fetching of the remote repo
         #[structopt(short, long)]
         token: Option<String>,
     },
