@@ -18,6 +18,10 @@ impl Repo {
         let status = String::from("cloned");
         Repo { url, status, local_path }
     }
+
+    // pub fn contain_goa_file() -> bool {
+    //     false
+    // }
 }
 
 pub fn spy_repo(url: String, username: Option<String>, token: Option<String>) -> Result<()> {
@@ -70,9 +74,8 @@ mod tests {
         assert_eq!(Err(ErrorKind::InvalidData), res);
     }
 
-    #[test]
-    fn test_get_repo_from_url() {
-        
-        assert!(true);
-    }
+    // #[test]
+    // fn test_contain_a_goa_file() {   
+    //     assert!(true);
+    // }
 }
