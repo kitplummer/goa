@@ -31,4 +31,4 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: cargo test
-      run: TMPDIR=$HOME cargo test --verbose
+      run: export TMPDIR=$HOME; cargo test --verbose
