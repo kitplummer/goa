@@ -79,15 +79,17 @@ pub fn git_diff(repo: &Repo) -> Result<()> {
         Ok(local_repo) => local_repo,
         Err(e) => panic!("failed to open: {}", e),
     };
+    let l = String::from("git2");
     let r = String::from("origin/git2");
-    let t = tree_to_treeish(&local_repo, Some(&r)).unwrap();
+    let tl = tree_to_treeish(&local_repo, Some(&l)).unwrap();
+    let tr = tree_to_treeish(&local_repo, Some(&r)).unwrap();
 
-    let diff = match t {
-        Some(origin) => local_repo.diff_tree_to_tree(None, origin.as_tree(), None),
-        None => unreachable!()
+    let diff = match (tl, tr) {
+        (Some(local), Some(origin)) => local_repo.diff_tree_to_tree(local.as_tree(), origin.as_tree(), None),
+        (_, _) => unreachable!(),
     };
 
-    print_stats(&diff.unwrap());
+    print_stats(&diff.unwrap()).expect("Error: unable to get diff stats");
     //println!("UPSTREAM: {:?}", diff.unwrap().print(DiffFormat::Raw, ));
     // pub fn diff_tree_to_workdir(
     //   &self,
@@ -130,7 +132,7 @@ fn tree_to_treeish<'a>(
 
 fn print_stats(diff: &Diff) -> Result<()> {
     let stats = diff.stats().unwrap();
-    let mut format = git2::DiffStatsFormat::NONE;
+    let mut format = git2::DiffStatsFormat::FULL;
     let buf = stats.to_buf(format, 80).unwrap();
     print!("{}", std::str::from_utf8(&*buf).unwrap());
     Ok(())
