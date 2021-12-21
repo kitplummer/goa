@@ -53,6 +53,7 @@ pub fn spy_repo(url: String, branch: String, delay: u16, username: Option<String
             let tmp_dir_name = format!("{}", Uuid::new_v4());
             local_path.push_str(&String::from(tmp_dir_name));
 
+            // TODO: investigate shallow clone here
             let cloned_repo = match Repository:: clone(parsed_url.as_str(), local_path) {
                 Ok(repo) => repo,
                 Err(e) => panic!("Error: Failed to clone {}", e),
@@ -61,7 +62,10 @@ pub fn spy_repo(url: String, branch: String, delay: u16, username: Option<String
             println!("Spying repo {:?} at {:?}", url, repo.local_path);
 
             // This is where the loop happens...
-            spy_for_changes(url, branch, delay);
+            // For thread safety, we're going to have to simply pass the repo struct through, and
+            // recreate the Repository "object" in each thread.  Perhaps not most performant,
+            // but only sane way to manage through the thread scheduler.
+            spy_for_changes(repo, delay);
 
             Ok(())
         },
@@ -69,12 +73,32 @@ pub fn spy_repo(url: String, branch: String, delay: u16, username: Option<String
     }
 }
 
-pub fn spy_for_changes(url: String, branch: String, delay: u16) {
-    println!("Checking for changes on {}:{} every {} seconds", url, branch, delay);
+pub fn git_diff(repo: &Repo) -> Result<()> {
+    println!("Checking for diffs!");
+    let local_repo = match Repository::open(&repo.local_path) {
+        Ok(local_repo) => local_repo,
+        Err(e) => panic!("failed to open: {}", e),
+    };
+    let upstream = local_repo.state();
+    println!("UPSTREAM: {:?}", upstream);
+    // pub fn diff_tree_to_workdir(
+    //   &self,
+    //   old_tree: Option<&Tree<'_>>,
+    //   opts: Option<&mut DiffOptions>
+    // ) -> Result<Diff<'_>, Error>
+
+    Ok(())
+}
+
+pub fn spy_for_changes(repo: Repo, delay: u16) {
+    println!("Checking for changes every {} seconds", delay);
+
     // Create a new scheduler
     let mut scheduler = Scheduler::new();
     // Add some tasks to it
-    scheduler.every(1.minutes()).plus(30.seconds()).run(|| println!("Periodic task"));
+    scheduler.every(1.minutes()).plus(30.seconds()).run(move || 
+        git_diff(&repo).expect("Error: unable to attach to local repo.")
+    );
     // Manually run the scheduler in an event loop
     loop {
         scheduler.run_pending();
