@@ -85,7 +85,7 @@ pub fn git_diff(repo: &Repo) -> Result<()> {
     let tr = tree_to_treeish(&local_repo, Some(&r)).unwrap();
 
     let diff = match (tl, tr) {
-        (Some(local), Some(origin)) => local_repo.diff_tree_to_tree(local.as_tree(), origin.as_tree(), None),
+        (Some(local), Some(origin)) => local_repo.diff_tree_to_tree(origin.as_tree(), local.as_tree(), None),
         (_, _) => unreachable!(),
     };
 
