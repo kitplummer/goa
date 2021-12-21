@@ -6,7 +6,7 @@ use std::time::Duration;
 // Scheduler, and trait for .seconds(), .minutes(), etc.
 use clokwerk::{Scheduler, TimeUnits};
 
-use git2::{Repository, Tree, Object, ObjectType, Diff, DiffStatsFormat, DiffFormat};
+use git2::{Repository, Object, ObjectType, Diff, DiffStatsFormat};
 use uuid::Uuid;
 use url::Url;
 
@@ -85,7 +85,7 @@ pub fn git_diff(repo: &Repo) -> Result<()> {
     let tr = tree_to_treeish(&local_repo, Some(&r)).unwrap();
 
     let diff = match (tl, tr) {
-        (Some(local), Some(origin)) => local_repo.diff_tree_to_tree(origin.as_tree(), local.as_tree(), None),
+        (Some(local), Some(origin)) => local_repo.diff_tree_to_tree(local.as_tree(), origin.as_tree(), None),
         (_, _) => unreachable!(),
     };
 
@@ -132,7 +132,7 @@ fn tree_to_treeish<'a>(
 
 fn print_stats(diff: &Diff) -> Result<()> {
     let stats = diff.stats().unwrap();
-    let mut format = git2::DiffStatsFormat::FULL;
+    let format = DiffStatsFormat::SHORT;
     let buf = stats.to_buf(format, 80).unwrap();
     print!("{}", std::str::from_utf8(&*buf).unwrap());
     Ok(())
