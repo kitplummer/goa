@@ -6,7 +6,7 @@ use std::time::Duration;
 // Scheduler, and trait for .seconds(), .minutes(), etc.
 use clokwerk::{Scheduler, TimeUnits};
 
-use git2::Repository;
+use git2::{Repository, Tree, Object, ObjectType, Diff, DiffStatsFormat, DiffFormat};
 use uuid::Uuid;
 use url::Url;
 
@@ -79,8 +79,16 @@ pub fn git_diff(repo: &Repo) -> Result<()> {
         Ok(local_repo) => local_repo,
         Err(e) => panic!("failed to open: {}", e),
     };
-    let upstream = local_repo.state();
-    println!("UPSTREAM: {:?}", upstream);
+    let r = String::from("origin/git2");
+    let t = tree_to_treeish(&local_repo, Some(&r)).unwrap();
+
+    let diff = match t {
+        Some(origin) => local_repo.diff_tree_to_tree(None, origin.as_tree(), None),
+        None => unreachable!()
+    };
+
+    print_stats(&diff.unwrap());
+    //println!("UPSTREAM: {:?}", diff.unwrap().print(DiffFormat::Raw, ));
     // pub fn diff_tree_to_workdir(
     //   &self,
     //   old_tree: Option<&Tree<'_>>,
@@ -96,7 +104,7 @@ pub fn spy_for_changes(repo: Repo, delay: u16) {
     // Create a new scheduler
     let mut scheduler = Scheduler::new();
     // Add some tasks to it
-    scheduler.every(1.minutes()).plus(30.seconds()).run(move || 
+    scheduler.every(30.seconds()).run(move || 
         git_diff(&repo).expect("Error: unable to attach to local repo.")
     );
     // Manually run the scheduler in an event loop
@@ -104,6 +112,28 @@ pub fn spy_for_changes(repo: Repo, delay: u16) {
         scheduler.run_pending();
         thread::sleep(Duration::from_millis(10));
     }
+}
+
+// Git ish
+fn tree_to_treeish<'a>(
+    repo: &'a Repository,
+    arg: Option<&String>,
+) -> Result<Option<Object<'a>>> {
+    let arg = match arg {
+        Some(s) => s,
+        None => return Ok(None),
+    };
+    let obj = repo.revparse_single(arg).unwrap();
+    let tree = obj.peel(ObjectType::Tree).unwrap();
+    Ok(Some(tree))
+}
+
+fn print_stats(diff: &Diff) -> Result<()> {
+    let stats = diff.stats().unwrap();
+    let mut format = git2::DiffStatsFormat::NONE;
+    let buf = stats.to_buf(format, 80).unwrap();
+    print!("{}", std::str::from_utf8(&*buf).unwrap());
+    Ok(())
 }
 
 #[cfg(test)]
