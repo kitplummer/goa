@@ -79,6 +79,10 @@ pub fn git_diff(repo: &Repo) -> Result<()> {
         Ok(local_repo) => local_repo,
         Err(e) => panic!("failed to open: {}", e),
     };
+
+    // TODO - Need to checkout the local branch first...getting error that the 'revspec' doesn't exist
+
+    
     let l = String::from("git2");
     let r = String::from("origin/git2");
     let tl = tree_to_treeish(&local_repo, Some(&l)).unwrap();
