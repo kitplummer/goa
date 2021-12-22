@@ -6,7 +6,7 @@ use std::time::Duration;
 // Scheduler, and trait for .seconds(), .minutes(), etc.
 use clokwerk::{Scheduler, TimeUnits};
 
-use git2::{Repository, Object, ObjectType, Diff, DiffStatsFormat, RemoteCallbacks, FetchOptions};
+use git2::{Repository, Object, ObjectType, Diff, DiffStatsFormat, RemoteCallbacks, FetchOptions, AutotagOption};
 use uuid::Uuid;
 use url::Url;
 
@@ -96,6 +96,15 @@ pub fn git_diff(repo: &Repo) -> Result<()> {
     let mut fo = FetchOptions::new();
     fo.remote_callbacks(cb);
     remote.download(&[] as &[&str], Some(&mut fo)).unwrap();
+
+    // Disconnect the underlying connection to prevent from idling.
+    remote.disconnect().unwrap();
+
+    // Update the references in the remote's namespace to point to the right
+    // commits. This may be needed even if there was no packfile to download,
+    // which can happen e.g. when the branches have been changed but all the
+    // needed objects are available locally.
+    remote.update_tips(None, true, AutotagOption::Unspecified, None).unwrap();
 
     let l = String::from("git2");
     let r = String::from("origin/git2");
