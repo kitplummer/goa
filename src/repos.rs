@@ -1,12 +1,12 @@
 use std::env::temp_dir;
-use std::io::{Error, ErrorKind, Result};
+use std::io::{Error, ErrorKind, Result, Write};
 use std::thread;
 use std::time::Duration;
 
 // Scheduler, and trait for .seconds(), .minutes(), etc.
 use clokwerk::{Scheduler, TimeUnits};
 
-use git2::{Repository, Object, ObjectType, Diff, DiffStatsFormat};
+use git2::{Repository, Object, ObjectType, Diff, DiffStatsFormat, RemoteCallbacks, FetchOptions};
 use uuid::Uuid;
 use url::Url;
 
@@ -80,9 +80,23 @@ pub fn git_diff(repo: &Repo) -> Result<()> {
         Err(e) => panic!("failed to open: {}", e),
     };
 
-    // TODO - Need to checkout the local branch first...getting error that the 'revspec' doesn't exist
+    // TODO - Need to fetch the origin branch first...
+    let remote = "origin";
+    println!("Fetching {} for repo", remote);
+    let mut cb = RemoteCallbacks::new();
+    let mut remote = local_repo
+        .find_remote(remote)
+        .or_else(|_| local_repo.remote_anonymous(remote)).unwrap();
+    cb.sideband_progress(|data| {
+        print!("remote: {}", std::str::from_utf8(data).unwrap());
+        std::io::stdout().flush().unwrap();
+        true
+    });
 
-    
+    let mut fo = FetchOptions::new();
+    fo.remote_callbacks(cb);
+    remote.download(&[] as &[&str], Some(&mut fo)).unwrap();
+
     let l = String::from("git2");
     let r = String::from("origin/git2");
     let tl = tree_to_treeish(&local_repo, Some(&l)).unwrap();
