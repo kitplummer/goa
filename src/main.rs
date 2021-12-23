@@ -1,5 +1,6 @@
 mod cli;
 mod repos;
+mod git;
 
 use structopt::StructOpt;
 

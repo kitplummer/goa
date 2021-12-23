@@ -6,9 +6,11 @@ use std::time::Duration;
 // Scheduler, and trait for .seconds(), .minutes(), etc.
 use clokwerk::{Scheduler, TimeUnits};
 
-use git2::{Repository, Object, ObjectType, Diff, DiffStatsFormat, RemoteCallbacks, FetchOptions, AutotagOption};
+use git2::Repository;
 use uuid::Uuid;
 use url::Url;
+
+use crate::git;
 
 #[derive(Debug, Clone)]
 pub struct Repo {
@@ -73,56 +75,28 @@ pub fn spy_repo(url: String, branch: String, delay: u16, username: Option<String
     }
 }
 
-pub fn git_diff(repo: &Repo) -> Result<()> {
+pub fn do_process(repo: &Repo) -> Result<()> {
     println!("Checking for diffs!");
+
+    // Get the real Repository
     let local_repo = match Repository::open(&repo.local_path) {
         Ok(local_repo) => local_repo,
         Err(e) => panic!("failed to open: {}", e),
     };
 
-    // TODO - Need to fetch the origin branch first...
-    let remote = "origin";
-    println!("Fetching {} for repo", remote);
-    let mut cb = RemoteCallbacks::new();
-    let mut remote = local_repo
-        .find_remote(remote)
-        .or_else(|_| local_repo.remote_anonymous(remote)).unwrap();
-    cb.sideband_progress(|data| {
-        print!("remote: {}", std::str::from_utf8(data).unwrap());
-        std::io::stdout().flush().unwrap();
-        true
-    });
+    // Run a is_diff() check
 
-    let mut fo = FetchOptions::new();
-    fo.remote_callbacks(cb);
-    remote.download(&[] as &[&str], Some(&mut fo)).unwrap();
+    if git::is_diff(&local_repo, "origin", "git2") {
+        println!("DIFF!!!");
+    } else {
+        println!("NO DIFF");
+    }
 
-    // Disconnect the underlying connection to prevent from idling.
-    remote.disconnect().unwrap();
 
-    // Update the references in the remote's namespace to point to the right
-    // commits. This may be needed even if there was no packfile to download,
-    // which can happen e.g. when the branches have been changed but all the
-    // needed objects are available locally.
-    remote.update_tips(None, true, AutotagOption::Unspecified, None).unwrap();
 
-    let l = String::from("git2");
-    let r = String::from("origin/git2");
-    let tl = tree_to_treeish(&local_repo, Some(&l)).unwrap();
-    let tr = tree_to_treeish(&local_repo, Some(&r)).unwrap();
+    // If diff then do the thing!
 
-    let diff = match (tl, tr) {
-        (Some(local), Some(origin)) => local_repo.diff_tree_to_tree(local.as_tree(), origin.as_tree(), None),
-        (_, _) => unreachable!(),
-    };
-
-    print_stats(&diff.unwrap()).expect("Error: unable to get diff stats");
-    //println!("UPSTREAM: {:?}", diff.unwrap().print(DiffFormat::Raw, ));
-    // pub fn diff_tree_to_workdir(
-    //   &self,
-    //   old_tree: Option<&Tree<'_>>,
-    //   opts: Option<&mut DiffOptions>
-    // ) -> Result<Diff<'_>, Error>
+    // If thing is successful do_merge()
 
     Ok(())
 }
@@ -134,35 +108,13 @@ pub fn spy_for_changes(repo: Repo, delay: u16) {
     let mut scheduler = Scheduler::new();
     // Add some tasks to it
     scheduler.every(30.seconds()).run(move || 
-        git_diff(&repo).expect("Error: unable to attach to local repo.")
+        do_process(&repo).expect("Error: unable to attach to local repo.")
     );
     // Manually run the scheduler in an event loop
     loop {
         scheduler.run_pending();
         thread::sleep(Duration::from_millis(10));
     }
-}
-
-// Git ish
-fn tree_to_treeish<'a>(
-    repo: &'a Repository,
-    arg: Option<&String>,
-) -> Result<Option<Object<'a>>> {
-    let arg = match arg {
-        Some(s) => s,
-        None => return Ok(None),
-    };
-    let obj = repo.revparse_single(arg).unwrap();
-    let tree = obj.peel(ObjectType::Tree).unwrap();
-    Ok(Some(tree))
-}
-
-fn print_stats(diff: &Diff) -> Result<()> {
-    let stats = diff.stats().unwrap();
-    let format = DiffStatsFormat::SHORT;
-    let buf = stats.to_buf(format, 80).unwrap();
-    print!("{}", std::str::from_utf8(&*buf).unwrap());
-    Ok(())
 }
 
 #[cfg(test)]
