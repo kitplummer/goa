@@ -67,7 +67,7 @@ pub fn spy_repo(url: String, branch: String, delay: u16, username: Option<String
             // For thread safety, we're going to have to simply pass the repo struct through, and
             // recreate the Repository "object" in each thread.  Perhaps not most performant,
             // but only sane way to manage through the thread scheduler.
-            spy_for_changes(repo, delay);
+            spy_for_changes(repo, branch, delay);
 
             Ok(())
         },
@@ -75,7 +75,7 @@ pub fn spy_repo(url: String, branch: String, delay: u16, username: Option<String
     }
 }
 
-pub fn do_process(repo: &Repo) -> Result<()> {
+pub fn do_process(repo: &Repo, branch: String) -> Result<()> {
     println!("Checking for diffs!");
 
     // Get the real Repository
@@ -86,12 +86,12 @@ pub fn do_process(repo: &Repo) -> Result<()> {
 
     // Run a is_diff() check
 
-    match git::is_diff(&local_repo, "origin", "git2") {
+    match git::is_diff(&local_repo, "origin", &branch.to_string()) {
         Ok(commit) => {
             println!("DIFF!!!, Doin' the thing! {:?}", commit.refname().unwrap());
             do_task();
-            let _ = git::do_fetch(&local_repo, &["git2"], &mut local_repo.find_remote("origin").unwrap());
             let _ = git::do_merge(&local_repo, "origin", commit);
+            let _ = git::do_fetch(&local_repo, &["git2"], &mut local_repo.find_remote("origin").unwrap());
         },
         Err(e) => {
             println!("{}", e);
@@ -105,14 +105,14 @@ fn do_task(){
     println!("Doing the task!");
 }
 
-pub fn spy_for_changes(repo: Repo, delay: u16) {
+pub fn spy_for_changes(repo: Repo,branch: String, delay: u16) {
     println!("Checking for changes every {} seconds", delay);
 
     // Create a new scheduler
     let mut scheduler = Scheduler::new();
     // Add some tasks to it
     scheduler.every(30.seconds()).run(move || 
-        do_process(&repo).expect("Error: unable to attach to local repo.")
+        do_process(&repo, branch).expect("Error: unable to attach to local repo.")
     );
     // Manually run the scheduler in an event loop
     loop {
