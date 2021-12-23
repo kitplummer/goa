@@ -86,10 +86,15 @@ pub fn do_process(repo: &Repo) -> Result<()> {
 
     // Run a is_diff() check
 
-    if git::is_diff(&local_repo, "origin", "git2") {
-        println!("DIFF!!!");
-    } else {
-        println!("NO DIFF");
+    match git::is_diff(&local_repo, "origin", "git2") {
+        Ok(commit) => {
+            println!("DIFF!!!, Doin' the thing!");
+            do_task();
+            //git::do_merge(&local_repo, "origin", commit);
+        },
+        Err(e) => {
+            println!("NO DIFF");
+        }
     }
 
 
@@ -99,6 +104,10 @@ pub fn do_process(repo: &Repo) -> Result<()> {
     // If thing is successful do_merge()
 
     Ok(())
+}
+
+fn do_task(){
+    println!("Doing the task!");
 }
 
 pub fn spy_for_changes(repo: Repo, delay: u16) {

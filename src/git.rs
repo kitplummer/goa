@@ -20,7 +20,7 @@ pub fn is_diff<'a>(
     repo: &'a git2::Repository,
     remote_name: &str,
     branch_name: &str
-) -> bool {
+) -> Result<git2::AnnotatedCommit<'a>, git2::Error> {
   println!("Fetching {} for repo", remote_name);
   let mut cb = RemoteCallbacks::new();
   let mut remote = repo
@@ -58,9 +58,10 @@ pub fn is_diff<'a>(
   print_stats(&diff).expect("unable to print diff stats");
 
   if diff.deltas().len() > 0 {
-    true
+    let fetch_head = repo.find_reference("FETCH_HEAD")?;
+    repo.reference_to_annotated_commit(&fetch_head)
   } else {
-    false
+    return Err(git2::Error::from_str("No diffs"))
   }
 }
 
@@ -206,7 +207,7 @@ fn normal_merge(
     Ok(())
 }
 
-fn do_merge<'a>(
+pub fn do_merge<'a>(
     repo: &'a Repository,
     remote_branch: &str,
     fetch_commit: git2::AnnotatedCommit<'a>,
