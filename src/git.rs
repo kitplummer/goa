@@ -50,6 +50,8 @@ pub fn is_diff<'a>(
   let tl = tree_to_treeish(&repo, Some(&l)).unwrap();
   let tr = tree_to_treeish(&repo, Some(&r)).unwrap();
 
+  let local = tree_to_treeish(&repo, Some(&l)).unwrap();
+  repo.checkout_tree(&local.unwrap(), None)?;
   let diff = match (tl, tr) {
       (Some(local), Some(origin)) => repo.diff_tree_to_tree(local.as_tree(), origin.as_tree(), None).unwrap(),
       (_, _) => unreachable!(),
@@ -60,8 +62,6 @@ pub fn is_diff<'a>(
   if diff.deltas().len() > 0 {
     //do_fetch(&repo, &[&branch_name], &mut remote)?;
     let fetch_head = repo.find_reference("FETCH_HEAD")?;
-    let local = tree_to_treeish(&repo, Some(&l)).unwrap();
-    repo.checkout_tree(&local.unwrap(), None)?;
     repo.reference_to_annotated_commit(&fetch_head)
   } else {
     return Err(git2::Error::from_str("No diffs"))
