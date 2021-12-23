@@ -90,7 +90,7 @@ pub fn do_process(repo: &Repo, branch: &String) -> Result<()> {
         Ok(commit) => {
             println!("DIFF!!!, Doin' the thing! {:?}", commit.refname().unwrap());
             do_task();
-            let _ = git::do_merge(&local_repo, "origin/git2", commit);
+            let _ = git::do_merge(&local_repo, "git2", commit);
         },
         Err(e) => {
             println!("{}", e);
