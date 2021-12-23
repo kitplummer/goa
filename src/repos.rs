@@ -88,7 +88,7 @@ pub fn do_process(repo: &Repo) -> Result<()> {
 
     match git::is_diff(&local_repo, "origin", "git2") {
         Ok(commit) => {
-            println!("DIFF!!!, Doin' the thing! {:?}", Some(commit.refname()));
+            println!("DIFF!!!, Doin' the thing! {:?}", commit.refname());
             do_task();
             let _ = git::do_merge(&local_repo, "origin", commit);
         },
