@@ -50,8 +50,26 @@ pub fn is_diff<'a>(
   let tl = tree_to_treeish(&repo, Some(&l)).unwrap();
   let tr = tree_to_treeish(&repo, Some(&r)).unwrap();
 
-  let local = tree_to_treeish(&repo, Some(&l)).unwrap();
-  repo.checkout_tree(&local.unwrap(), None)?;
+  let head = repo.head().unwrap();
+    let oid = head.target().unwrap();
+    let commit = repo.find_commit(oid).unwrap();
+
+    let _branch = repo.branch(
+        branch_name,
+        &commit,
+        false,
+    );
+
+    let obj = repo.revparse_single(&("refs/heads/".to_owned() + 
+        branch_name)).unwrap();
+
+    repo.checkout_tree(
+        &obj,
+        None
+    )?;
+
+    repo.set_head(&("refs/heads/".to_owned() + branch_name))?;
+
   let diff = match (tl, tr) {
       (Some(local), Some(origin)) => repo.diff_tree_to_tree(local.as_tree(), origin.as_tree(), None).unwrap(),
       (_, _) => unreachable!(),
