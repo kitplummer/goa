@@ -86,7 +86,7 @@ fn print_stats(diff: &Diff) -> Result<(), git2::Error> {
     Ok(())
 }
 
-fn do_fetch<'a>(
+pub fn do_fetch<'a>(
     repo: &'a git2::Repository,
     refs: &[&str],
     remote: &'a mut git2::Remote,

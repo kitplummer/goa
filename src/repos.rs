@@ -1,5 +1,5 @@
 use std::env::temp_dir;
-use std::io::{Error, ErrorKind, Result, Write};
+use std::io::{Error, ErrorKind, Result};
 use std::thread;
 use std::time::Duration;
 
@@ -90,6 +90,7 @@ pub fn do_process(repo: &Repo) -> Result<()> {
         Ok(commit) => {
             println!("DIFF!!!, Doin' the thing! {:?}", commit.refname().unwrap());
             do_task();
+            let _ = git::do_fetch(&local_repo, &["git2"], &mut local_repo.find_remote("origin").unwrap());
             let _ = git::do_merge(&local_repo, "origin", commit);
         },
         Err(e) => {
