@@ -97,12 +97,6 @@ pub fn do_process(repo: &Repo) -> Result<()> {
         }
     }
 
-
-
-    // If diff then do the thing!
-
-    // If thing is successful do_merge()
-
     Ok(())
 }
 
