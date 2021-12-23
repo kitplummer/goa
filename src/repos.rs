@@ -61,7 +61,7 @@ pub fn spy_repo(url: String, branch: String, delay: u16, username: Option<String
                 Err(e) => panic!("Error: Failed to clone {}", e),
             };
             let repo = Repo::new(String::from(parsed_url.as_str()), String::from(cloned_repo.path().to_str().unwrap()));
-            println!("Spying repo {:?} at {:?}", url, repo.local_path);
+            println!("Spying repo {:?}: {} at {:?}", url, branch, repo.local_path);
 
             // This is where the loop happens...
             // For thread safety, we're going to have to simply pass the repo struct through, and
@@ -75,7 +75,7 @@ pub fn spy_repo(url: String, branch: String, delay: u16, username: Option<String
     }
 }
 
-pub fn do_process(repo: &Repo, branch: String) -> Result<()> {
+pub fn do_process(repo: &Repo, branch: &String) -> Result<()> {
     println!("Checking for diffs!");
 
     // Get the real Repository
@@ -91,7 +91,6 @@ pub fn do_process(repo: &Repo, branch: String) -> Result<()> {
             println!("DIFF!!!, Doin' the thing! {:?}", commit.refname().unwrap());
             do_task();
             let _ = git::do_merge(&local_repo, "origin", commit);
-            let _ = git::do_fetch(&local_repo, &["git2"], &mut local_repo.find_remote("origin").unwrap());
         },
         Err(e) => {
             println!("{}", e);
@@ -112,7 +111,7 @@ pub fn spy_for_changes(repo: Repo,branch: String, delay: u16) {
     let mut scheduler = Scheduler::new();
     // Add some tasks to it
     scheduler.every(30.seconds()).run(move || 
-        do_process(&repo, branch).expect("Error: unable to attach to local repo.")
+        do_process(&repo, &branch).expect("Error: unable to attach to local repo.")
     );
     // Manually run the scheduler in an event loop
     loop {

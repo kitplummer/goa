@@ -58,6 +58,7 @@ pub fn is_diff<'a>(
   print_stats(&diff).expect("unable to print diff stats");
 
   if diff.deltas().len() > 0 {
+    do_fetch(&repo, &[&branch_name], &mut remote)?;
     let fetch_head = repo.find_reference("FETCH_HEAD")?;
     repo.reference_to_annotated_commit(&fetch_head)
   } else {
