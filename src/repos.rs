@@ -7,8 +7,8 @@ use std::time::Duration;
 use clokwerk::{Scheduler, TimeUnits};
 
 use git2::Repository;
-use uuid::Uuid;
 use url::Url;
+use uuid::Uuid;
 
 use crate::git;
 
@@ -23,7 +23,11 @@ impl Repo {
     pub fn new(url: String, local_path: String) -> Repo {
         // We'll initialize after the clone is successful.
         let status = String::from("cloned");
-        Repo { url, status, local_path }
+        Repo {
+            url,
+            status,
+            local_path,
+        }
     }
 
     // pub fn contain_goa_file() -> bool {
@@ -31,20 +35,28 @@ impl Repo {
     // }
 }
 
-pub fn spy_repo(url: String, branch: String, delay: u16, username: Option<String>, token: Option<String>) -> Result<()> {
-
+pub fn spy_repo(
+    url: String,
+    branch: String,
+    delay: u16,
+    username: Option<String>,
+    token: Option<String>,
+) -> Result<()> {
     let parsed_url = Url::parse(&url);
 
     match parsed_url {
         Ok(mut parsed_url) => {
-
             if let Some(username) = username {
-                if let Err(e) = parsed_url.set_username(&username) { panic!("Error: {:?}", e) };
+                if let Err(e) = parsed_url.set_username(&username) {
+                    panic!("Error: {:?}", e)
+                };
             }
 
             if let Some(token) = token {
                 let token_str: &str = &token[..];
-                if let Err(e) = parsed_url.set_password(Option::from(token_str)) { panic!("Error: {:?}", e) };
+                if let Err(e) = parsed_url.set_password(Option::from(token_str)) {
+                    panic!("Error: {:?}", e)
+                };
             }
 
             // Get a temp directory to do work in
@@ -56,11 +68,14 @@ pub fn spy_repo(url: String, branch: String, delay: u16, username: Option<String
             local_path.push_str(&String::from(tmp_dir_name));
 
             // TODO: investigate shallow clone here
-            let cloned_repo = match Repository:: clone(parsed_url.as_str(), local_path) {
+            let cloned_repo = match Repository::clone(parsed_url.as_str(), local_path) {
                 Ok(repo) => repo,
                 Err(e) => panic!("Error: Failed to clone {}", e),
             };
-            let repo = Repo::new(String::from(parsed_url.as_str()), String::from(cloned_repo.path().to_str().unwrap()));
+            let repo = Repo::new(
+                String::from(parsed_url.as_str()),
+                String::from(cloned_repo.path().to_str().unwrap()),
+            );
             println!("Spying repo {:?}: {} at {:?}", url, branch, repo.local_path);
 
             // This is where the loop happens...
@@ -70,27 +85,27 @@ pub fn spy_repo(url: String, branch: String, delay: u16, username: Option<String
             spy_for_changes(repo, branch, delay);
 
             Ok(())
-        },
-        Err(e) => Err(Error::new(ErrorKind::InvalidData, format!("Invalid URL {}", e))),
+        }
+        Err(e) => Err(Error::new(
+            ErrorKind::InvalidData,
+            format!("Invalid URL {}", e),
+        )),
     }
 }
 
 pub fn do_process(repo: &Repo, branch: &String) -> Result<()> {
-
     // Get the real Repository
     let local_repo = match Repository::open(&repo.local_path) {
         Ok(local_repo) => local_repo,
         Err(e) => panic!("failed to open: {}", e),
     };
 
-    // Run a is_diff() check
-
     match git::is_diff(&local_repo, "origin", &branch.to_string()) {
         Ok(commit) => {
-            println!("DIFF!!!, Doin' the thing! {:?}", commit.refname().unwrap());
+            println!("goa: Have a diff, doin' the thing!");
             do_task();
             let _ = git::do_merge(&local_repo, "git2", commit);
-        },
+        }
         Err(e) => {
             println!("{}", e);
         }
@@ -99,19 +114,19 @@ pub fn do_process(repo: &Repo, branch: &String) -> Result<()> {
     Ok(())
 }
 
-fn do_task(){
+fn do_task() {
     println!("Doing the task!");
 }
 
-pub fn spy_for_changes(repo: Repo,branch: String, delay: u16) {
+pub fn spy_for_changes(repo: Repo, branch: String, delay: u16) {
     println!("Checking for changes every {} seconds", delay);
 
     // Create a new scheduler
     let mut scheduler = Scheduler::new();
     // Add some tasks to it
-    scheduler.every(30.seconds()).run(move || 
-        do_process(&repo, &branch).expect("Error: unable to attach to local repo.")
-    );
+    scheduler
+        .every(30.seconds())
+        .run(move || do_process(&repo, &branch).expect("Error: unable to attach to local repo."));
     // Manually run the scheduler in an event loop
     loop {
         scheduler.run_pending();
@@ -130,7 +145,8 @@ mod tests {
             120,
             Some(String::from("")),
             Some(String::from(""))
-        ).is_ok());
+        )
+        .is_ok());
     }
 
     #[test]
@@ -140,14 +156,15 @@ mod tests {
             String::from("branch"),
             120,
             Some(String::from("test")),
-            Some(String::from("test"))
-        ).map_err(|e| e.kind());
+            Some(String::from("test")),
+        )
+        .map_err(|e| e.kind());
 
         assert_eq!(Err(ErrorKind::InvalidData), res);
     }
 
     // #[test]
-    // fn test_contain_a_goa_file() {   
+    // fn test_contain_a_goa_file() {
     //     assert!(true);
     // }
 }

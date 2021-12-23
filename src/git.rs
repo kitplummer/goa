@@ -12,79 +12,80 @@
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
-use git2::{AutotagOption, Diff, DiffStatsFormat, FetchOptions, Object, ObjectType, RemoteCallbacks, Repository};
+use git2::{
+    AutotagOption, Diff, DiffStatsFormat, FetchOptions, Object, ObjectType, RemoteCallbacks,
+    Repository,
+};
 use std::io::{self, Write};
 use std::str;
 
 pub fn is_diff<'a>(
     repo: &'a git2::Repository,
     remote_name: &str,
-    branch_name: &str
+    branch_name: &str,
 ) -> Result<git2::AnnotatedCommit<'a>, git2::Error> {
-
     println!("Checking for diffs at {}!", remote_name);
-  let mut cb = RemoteCallbacks::new();
-  let mut remote = repo
-      .find_remote(remote_name)
-      .or_else(|_| repo.remote_anonymous(remote_name)).unwrap();
-  cb.sideband_progress(|data| {
-      print!("remote: {}", std::str::from_utf8(data).unwrap());
-      std::io::stdout().flush().unwrap();
-      true
-  });
+    let mut cb = RemoteCallbacks::new();
+    let mut remote = repo
+        .find_remote(remote_name)
+        .or_else(|_| repo.remote_anonymous(remote_name))
+        .unwrap();
+    cb.sideband_progress(|data| {
+        print!("remote: {}", std::str::from_utf8(data).unwrap());
+        std::io::stdout().flush().unwrap();
+        true
+    });
 
-  let mut fo = FetchOptions::new();
-  fo.remote_callbacks(cb);
-  remote.download(&[] as &[&str], Some(&mut fo)).unwrap();
+    let mut fo = FetchOptions::new();
+    fo.remote_callbacks(cb);
+    remote.download(&[] as &[&str], Some(&mut fo)).unwrap();
 
-  // Disconnect the underlying connection to prevent from idling.
-  remote.disconnect().unwrap();
+    // Disconnect the underlying connection to prevent from idling.
+    remote.disconnect().unwrap();
 
-  // Update the references in the remote's namespace to point to the right
-  // commits. This may be needed even if there was no packfile to download,
-  // which can happen e.g. when the branches have been changed but all the
-  // needed objects are available locally.
-  remote.update_tips(None, true, AutotagOption::Unspecified, None).unwrap();
+    // Update the references in the remote's namespace to point to the right
+    // commits. This may be needed even if there was no packfile to download,
+    // which can happen e.g. when the branches have been changed but all the
+    // needed objects are available locally.
+    remote
+        .update_tips(None, true, AutotagOption::Unspecified, None)
+        .unwrap();
 
-  let l = String::from(branch_name);
-  let r = format!("{}/{}", remote_name, branch_name);
-  let tl = tree_to_treeish(&repo, Some(&l)).unwrap();
-  let tr = tree_to_treeish(&repo, Some(&r)).unwrap();
+    let l = String::from(branch_name);
+    let r = format!("{}/{}", remote_name, branch_name);
+    let tl = tree_to_treeish(&repo, Some(&l)).unwrap();
+    let tr = tree_to_treeish(&repo, Some(&r)).unwrap();
 
-  let head = repo.head().unwrap();
+    let head = repo.head().unwrap();
     let oid = head.target().unwrap();
     let commit = repo.find_commit(oid).unwrap();
 
-    let _branch = repo.branch(
-        branch_name,
-        &commit,
-        false,
-    );
+    let _branch = repo.branch(branch_name, &commit, false);
 
-    let obj = repo.revparse_single(&("refs/heads/".to_owned() + 
-        branch_name)).unwrap();
+    let obj = repo
+        .revparse_single(&("refs/heads/".to_owned() + branch_name))
+        .unwrap();
 
-    repo.checkout_tree(
-        &obj,
-        None
-    )?;
+    repo.checkout_tree(&obj, None)?;
 
     repo.set_head(&("refs/heads/".to_owned() + branch_name))?;
 
-  let diff = match (tl, tr) {
-      (Some(local), Some(origin)) => repo.diff_tree_to_tree(local.as_tree(), origin.as_tree(), None).unwrap(),
-      (_, _) => unreachable!(),
-  };
+    let diff = match (tl, tr) {
+        (Some(local), Some(origin)) => repo
+            .diff_tree_to_tree(local.as_tree(), origin.as_tree(), None)
+            .unwrap(),
+        (_, _) => unreachable!(),
+    };
 
-  print_stats(&diff).expect("unable to print diff stats");
+    print_stats(&diff).expect("unable to print diff stats");
 
-  if diff.deltas().len() > 0 {
-    //do_fetch(&repo, &[&branch_name], &mut remote)?;
-    let fetch_head = repo.find_reference("FETCH_HEAD")?;
-    repo.reference_to_annotated_commit(&fetch_head)
-  } else {
-    return Err(git2::Error::from_str("goa: No diffs, back to sleep. :)"))
-  }
+    if diff.deltas().len() > 0 {
+        //do_fetch(&repo, &[&branch_name], &mut remote)?;
+        let fetch_head = repo.find_reference("FETCH_HEAD")?;
+        repo.reference_to_annotated_commit(&fetch_head)
+    } else {
+        return Err(git2::Error::from_str("goa: No diffs, back to sleep. :)"));
+    }
 }
 
 pub fn tree_to_treeish<'a>(
