@@ -88,12 +88,12 @@ pub fn do_process(repo: &Repo) -> Result<()> {
 
     match git::is_diff(&local_repo, "origin", "git2") {
         Ok(commit) => {
-            println!("DIFF!!!, Doin' the thing!");
+            println!("DIFF!!!, Doin' the thing! {:?}", Some(commit.refname()));
             do_task();
-            //git::do_merge(&local_repo, "origin", commit);
+            let _ = git::do_merge(&local_repo, "origin", commit);
         },
         Err(e) => {
-            println!("NO DIFF");
+            println!("{}", e);
         }
     }
 
