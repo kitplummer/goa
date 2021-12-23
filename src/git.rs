@@ -21,7 +21,8 @@ pub fn is_diff<'a>(
     remote_name: &str,
     branch_name: &str
 ) -> Result<git2::AnnotatedCommit<'a>, git2::Error> {
-  println!("Fetching {} for repo", remote_name);
+
+    println!("Checking for diffs at {}!", remote_name);
   let mut cb = RemoteCallbacks::new();
   let mut remote = repo
       .find_remote(remote_name)
@@ -82,7 +83,7 @@ pub fn is_diff<'a>(
     let fetch_head = repo.find_reference("FETCH_HEAD")?;
     repo.reference_to_annotated_commit(&fetch_head)
   } else {
-    return Err(git2::Error::from_str("No diffs"))
+    return Err(git2::Error::from_str("goa: No diffs, back to sleep. :)"))
   }
 }
 
@@ -140,7 +141,6 @@ pub fn do_fetch<'a>(
     // Always fetch all tags.
     // Perform a download and also update tips
     fo.download_tags(git2::AutotagOption::All);
-    println!("Fetching {} for repo", remote.name().unwrap());
     remote.fetch(refs, Some(&mut fo), None)?;
 
     // If there are local objects (we got a thin pack), then tell the user

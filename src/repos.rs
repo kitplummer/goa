@@ -76,7 +76,6 @@ pub fn spy_repo(url: String, branch: String, delay: u16, username: Option<String
 }
 
 pub fn do_process(repo: &Repo, branch: &String) -> Result<()> {
-    println!("Checking for diffs!");
 
     // Get the real Repository
     let local_repo = match Repository::open(&repo.local_path) {
