@@ -58,8 +58,10 @@ pub fn is_diff<'a>(
   print_stats(&diff).expect("unable to print diff stats");
 
   if diff.deltas().len() > 0 {
-    do_fetch(&repo, &[&branch_name], &mut remote)?;
+    //do_fetch(&repo, &[&branch_name], &mut remote)?;
     let fetch_head = repo.find_reference("FETCH_HEAD")?;
+    let local = tree_to_treeish(&repo, Some(&l)).unwrap();
+    repo.checkout_tree(&local.unwrap(), None)?;
     repo.reference_to_annotated_commit(&fetch_head)
   } else {
     return Err(git2::Error::from_str("No diffs"))
