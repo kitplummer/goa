@@ -77,10 +77,9 @@ pub fn is_diff<'a>(
         (_, _) => unreachable!(),
     };
 
-    print_stats(&diff).expect("unable to print diff stats");
+    print_stats(&diff).expect("ERROR: unable to print diff stats");
 
     if diff.deltas().len() > 0 {
-        //do_fetch(&repo, &[&branch_name], &mut remote)?;
         let fetch_head = repo.find_reference("FETCH_HEAD")?;
         repo.reference_to_annotated_commit(&fetch_head)
     } else {
@@ -103,7 +102,7 @@ pub fn tree_to_treeish<'a>(
 
 fn print_stats(diff: &Diff) -> Result<(), git2::Error> {
     let stats = diff.stats().unwrap();
-    let format = DiffStatsFormat::SHORT;
+    let format = DiffStatsFormat::FULL;
     let buf = stats.to_buf(format, 80).unwrap();
     print!("{}", std::str::from_utf8(&*buf).unwrap());
     Ok(())
@@ -239,7 +238,6 @@ pub fn do_merge<'a>(
 
     // 2. Do the appopriate merge
     if analysis.0.is_fast_forward() {
-        println!("Doing a fast forward");
         // do a fast forward
         let refname = format!("refs/heads/{}", remote_branch);
         match repo.find_reference(&refname) {
