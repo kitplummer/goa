@@ -3,6 +3,9 @@ use std::io::{Error, ErrorKind, Result};
 use std::thread;
 use std::time::Duration;
 
+// For datetime/timestamp/log
+use chrono::{Utc};
+
 // Scheduler, and trait for .seconds(), .minutes(), etc.
 use clokwerk::{Scheduler, TimeUnits};
 
@@ -42,6 +45,9 @@ pub fn spy_repo(
     username: Option<String>,
     token: Option<String>,
 ) -> Result<()> {
+
+    let dt = Utc::now();
+    println!("goa [{}]: starting to spy {}:{}", dt, url, branch);
     let parsed_url = Url::parse(&url);
 
     match parsed_url {
@@ -76,7 +82,6 @@ pub fn spy_repo(
                 String::from(parsed_url.as_str()),
                 String::from(cloned_repo.path().to_str().unwrap()),
             );
-            println!("Spying repo {:?}: {} at {:?}", url, branch, repo.local_path);
 
             // This is where the loop happens...
             // For thread safety, we're going to have to simply pass the repo struct through, and
@@ -88,7 +93,7 @@ pub fn spy_repo(
         }
         Err(e) => Err(Error::new(
             ErrorKind::InvalidData,
-            format!("Invalid URL {}", e),
+            format!("Error: Invalid URL {}", e),
         )),
     }
 }
@@ -99,7 +104,9 @@ pub fn do_process(repo: &Repo, branch: &String) -> Result<()> {
         Ok(local_repo) => local_repo,
         Err(e) => panic!("failed to open: {}", e),
     };
-
+    
+    let dt = Utc::now();
+    println!("goa [{}]: checking for diffs at origin/{}!", dt, branch);
     match git::is_diff(&local_repo, "origin", &branch.to_string()) {
         Ok(commit) => {
             println!("goa: Have a diff, doin' the thing!");
@@ -107,7 +114,8 @@ pub fn do_process(repo: &Repo, branch: &String) -> Result<()> {
             let _ = git::do_merge(&local_repo, "git2", commit);
         }
         Err(e) => {
-            println!("{}", e);
+            let dt = Utc::now();
+            println!("goa [{}]: {}", dt, e);
         }
     }
 
@@ -119,13 +127,15 @@ fn do_task() {
 }
 
 pub fn spy_for_changes(repo: Repo, branch: String, delay: u16) {
-    println!("Checking for changes every {} seconds", delay);
+    let dt = Utc::now();
+    println!("goa [{}]: checking for changes every {} seconds", dt, delay);
 
     // Create a new scheduler
     let mut scheduler = Scheduler::new();
+    let delay = delay as u32;
     // Add some tasks to it
     scheduler
-        .every(30.seconds())
+        .every(delay.seconds())
         .run(move || do_process(&repo, &branch).expect("Error: unable to attach to local repo."));
     // Manually run the scheduler in an event loop
     loop {

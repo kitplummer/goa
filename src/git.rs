@@ -12,26 +12,28 @@
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
+use chrono::Utc;
 use git2::{
     AutotagOption, Diff, DiffStatsFormat, FetchOptions, Object, ObjectType, RemoteCallbacks,
     Repository,
 };
-use std::io::{self, Write};
+use std::io::Write;
 use std::str;
+
 
 pub fn is_diff<'a>(
     repo: &'a git2::Repository,
     remote_name: &str,
     branch_name: &str,
 ) -> Result<git2::AnnotatedCommit<'a>, git2::Error> {
-    println!("Checking for diffs at {}!", remote_name);
     let mut cb = RemoteCallbacks::new();
     let mut remote = repo
         .find_remote(remote_name)
         .or_else(|_| repo.remote_anonymous(remote_name))
         .unwrap();
     cb.sideband_progress(|data| {
-        print!("remote: {}", std::str::from_utf8(data).unwrap());
+        let dt = Utc::now();
+        print!("goa [{}]: remote: {}", dt, std::str::from_utf8(data).unwrap());
         std::io::stdout().flush().unwrap();
         true
     });
@@ -83,7 +85,7 @@ pub fn is_diff<'a>(
         let fetch_head = repo.find_reference("FETCH_HEAD")?;
         repo.reference_to_annotated_commit(&fetch_head)
     } else {
-        return Err(git2::Error::from_str("goa: No diffs, back to sleep. :)"));
+        return Err(git2::Error::from_str("No diffs, back to sleep. :)"));
     }
 }
 
@@ -104,7 +106,8 @@ fn print_stats(diff: &Diff) -> Result<(), git2::Error> {
     let stats = diff.stats().unwrap();
     let format = DiffStatsFormat::FULL;
     let buf = stats.to_buf(format, 80).unwrap();
-    print!("{}", std::str::from_utf8(&*buf).unwrap());
+    let dt = Utc::now();
+    print!("goa [{}]: {}", dt, std::str::from_utf8(&*buf).unwrap());
     Ok(())
 }
 
