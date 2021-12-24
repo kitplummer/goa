@@ -78,7 +78,7 @@ pub fn is_diff<'a>(
             .unwrap(),
         (_, _) => unreachable!(),
     };
-
+    // TODO: make this a verbose thing
     print_stats(&diff).expect("ERROR: unable to print diff stats");
 
     if diff.deltas().len() > 0 {
@@ -111,66 +111,6 @@ fn print_stats(diff: &Diff) -> Result<(), git2::Error> {
     Ok(())
 }
 
-// pub fn do_fetch<'a>(
-//     repo: &'a git2::Repository,
-//     refs: &[&str],
-//     remote: &'a mut git2::Remote,
-// ) -> Result<git2::AnnotatedCommit<'a>, git2::Error> {
-//     let mut cb = git2::RemoteCallbacks::new();
-
-//     // Print out our transfer progress.
-//     cb.transfer_progress(|stats| {
-//         if stats.received_objects() == stats.total_objects() {
-//             print!(
-//                 "Resolving deltas {}/{}\r",
-//                 stats.indexed_deltas(),
-//                 stats.total_deltas()
-//             );
-//         } else if stats.total_objects() > 0 {
-//             print!(
-//                 "Received {}/{} objects ({}) in {} bytes\r",
-//                 stats.received_objects(),
-//                 stats.total_objects(),
-//                 stats.indexed_objects(),
-//                 stats.received_bytes()
-//             );
-//         }
-//         io::stdout().flush().unwrap();
-//         true
-//     });
-
-//     let mut fo = git2::FetchOptions::new();
-//     fo.remote_callbacks(cb);
-//     // Always fetch all tags.
-//     // Perform a download and also update tips
-//     fo.download_tags(git2::AutotagOption::All);
-//     remote.fetch(refs, Some(&mut fo), None)?;
-
-//     // If there are local objects (we got a thin pack), then tell the user
-//     // how many objects we saved from having to cross the network.
-//     let stats = remote.stats();
-//     if stats.local_objects() > 0 {
-//         println!(
-//             "\rReceived {}/{} objects in {} bytes (used {} local \
-//              objects)",
-//             stats.indexed_objects(),
-//             stats.total_objects(),
-//             stats.received_bytes(),
-//             stats.local_objects()
-//         );
-//     } else {
-//         println!(
-//             "\rReceived {}/{} objects in {} bytes",
-//             stats.indexed_objects(),
-//             stats.total_objects(),
-//             stats.received_bytes()
-//         );
-//     }
-
-//     let fetch_head = repo.find_reference("FETCH_HEAD")?;
-//     Ok(repo.reference_to_annotated_commit(&fetch_head)?)
-// }
-
 fn fast_forward(
     repo: &Repository,
     lb: &mut git2::Reference,
@@ -181,7 +121,8 @@ fn fast_forward(
         None => String::from_utf8_lossy(lb.name_bytes()).to_string(),
     };
     let msg = format!("Fast-Forward: Setting {} to id: {}", name, rc.id());
-    println!("{}", msg);
+    // TODO: make this a verbose things
+    // println!("{}", msg);
     lb.set_target(rc.id(), &msg)?;
     repo.set_head(&name)?;
     repo.checkout_head(Some(
@@ -207,7 +148,7 @@ fn normal_merge(
     let mut idx = repo.merge_trees(&ancestor, &local_tree, &remote_tree, None)?;
 
     if idx.has_conflicts() {
-        println!("Merge conficts detected...");
+        println!("Error: Merge conficts detected...");
         repo.checkout_index(Some(&mut idx), None)?;
         return Ok(());
     }
@@ -271,16 +212,7 @@ pub fn do_merge<'a>(
         let head_commit = repo.reference_to_annotated_commit(&repo.head()?)?;
         normal_merge(&repo, &head_commit, &fetch_commit)?;
     } else {
-        println!("Nothing to do...");
+        println!("Error: Nothing to do?");
     }
     Ok(())
 }
-
-// fn run(args: &Args) -> Result<(), git2::Error> {
-//     let remote_name = args.arg_remote.as_ref().map(|s| &s[..]).unwrap_or("origin");
-//     let remote_branch = args.arg_branch.as_ref().map(|s| &s[..]).unwrap_or("master");
-//     let repo = Repository::open(".")?;
-//     let mut remote = repo.find_remote(remote_name)?;
-//     let fetch_commit = do_fetch(&repo, &[remote_branch], &mut remote)?;
-//     do_merge(&repo, &remote_branch, fetch_commit)
-// }

@@ -109,7 +109,6 @@ pub fn do_process(repo: &Repo, branch: &String) -> Result<()> {
     println!("goa [{}]: checking for diffs at origin/{}!", dt, branch);
     match git::is_diff(&local_repo, "origin", &branch.to_string()) {
         Ok(commit) => {
-            println!("goa: Have a diff, doin' the thing!");
             do_task();
             let _ = git::do_merge(&local_repo, "git2", commit);
         }
@@ -123,7 +122,8 @@ pub fn do_process(repo: &Repo, branch: &String) -> Result<()> {
 }
 
 fn do_task() {
-    println!("Doing the task!");
+    let dt = Utc::now();
+    println!("goa [{}]: have a diff, processing the goa file", dt);
 }
 
 pub fn spy_for_changes(repo: Repo, branch: String, delay: u16) {
