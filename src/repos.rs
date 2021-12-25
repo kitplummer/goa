@@ -147,17 +147,6 @@ pub fn spy_for_changes(repo: Repo, branch: String, delay: u16) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn test_spy_repo_with_good_url() {
-        assert!(spy_repo(
-            String::from("https://github.com/kitplummer/clikan"),
-            String::from("branch"),
-            120,
-            Some(String::from("")),
-            Some(String::from(""))
-        )
-        .is_ok());
-    }
 
     #[test]
     fn test_spy_repo_with_bad_url() {
