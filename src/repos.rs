@@ -152,11 +152,8 @@ fn do_task(command: &String) {
                     .expect("goa: Error -> failed to execute command");
 
     let dt = Utc::now();
-    println!("goa: [{}]: status: {}", dt, output.status);
-
+    println!("goa: [{}]: command status: {}", dt, output.status);
     println!("goa: [{}]: {}", dt, String::from_utf8_lossy(&output.stdout));
-
-
 
 }
 
