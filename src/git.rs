@@ -1,4 +1,6 @@
 /*
+ * This module is pulled directly from libgit2 - so there's the attribution!
+ * 
  * libgit2 "pull" example - shows how to pull remote data into a local branch.
  *
  * Written by the libgit2 contributors

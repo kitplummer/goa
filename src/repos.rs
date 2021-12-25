@@ -133,7 +133,6 @@ fn do_task(command: &String) {
     let command: Vec<&str> = command.split(" ").collect();
     let dt = Utc::now();
     println!("goa [{}]: have a diff, processing the goa file", dt);
-    println!("goa [{}]: running -> {:?}", dt, command);
 
     let mut command_command = "";
     let mut command_args: Vec<&str> = [].to_vec();
@@ -146,6 +145,7 @@ fn do_task(command: &String) {
         }
     }
     
+    println!("goa [{}]: running -> {} with args {:?}", dt, command_command, command_args);
     let output = Command::new(command_command)
                     .args(command_args)
                     .output()
