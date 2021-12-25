@@ -138,7 +138,7 @@ fn do_task(command: &String) {
     let mut command_args: Vec<&str> = [].to_vec();
 
     for (pos, e) in command.iter().enumerate() {
-        if pos == 1 {
+        if pos == 0 {
             command_command = e;
         } else {
             command_args.push(e);
