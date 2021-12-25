@@ -1,5 +1,6 @@
 use std::env::temp_dir;
 use std::io::{Error, ErrorKind, Result};
+use std::process::Command;
 use std::thread;
 use std::time::Duration;
 
@@ -123,9 +124,12 @@ pub fn do_process(repo: &Repo, branch: &String, command: &String) -> Result<()> 
 }
 
 fn do_task(command: &String) {
+
+    let mut task: Vec<&str> = command.split(" ").collect();
     let dt = Utc::now();
     println!("goa [{}]: have a diff, processing the goa file", dt);
-    println!("goa [{}]: running -> {}", dt, command);
+    println!("goa [{}]: running -> {:?}", dt, task);
+
 }
 
 pub fn spy_for_changes(repo: Repo, branch: String, delay: u16, command: String) {
