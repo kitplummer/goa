@@ -90,11 +90,12 @@ pub fn spy_repo(
                 None => String::from(""),
             };
 
+            let working_dir: String = local_path.clone();
             // This is where the loop happens...
             // For thread safety, we're going to have to simply pass the repo struct through, and
             // recreate the Repository "object" in each thread.  Perhaps not most performant,
             // but only sane way to manage through the thread scheduler.
-            spy_for_changes(repo, branch, delay, command);
+            spy_for_changes(repo, branch, delay, command, working_dir);
 
             Ok(())
         }
@@ -105,7 +106,7 @@ pub fn spy_repo(
     }
 }
 
-pub fn do_process(repo: &Repo, branch: &String, command: &String) -> Result<()> {
+pub fn do_process(repo: &Repo, branch: &String, command: &String, working_dir: &String) -> Result<()> {
     // Get the real Repository
     let local_repo = match Repository::open(&repo.local_path) {
         Ok(local_repo) => local_repo,
@@ -116,7 +117,7 @@ pub fn do_process(repo: &Repo, branch: &String, command: &String) -> Result<()> 
     println!("goa [{}]: checking for diffs at origin/{}!", dt, branch);
     match git::is_diff(&local_repo, "origin", &branch.to_string()) {
         Ok(commit) => {
-            do_task(&command);
+            do_task(&command, &working_dir);
             let _ = git::do_merge(&local_repo, "git2", commit);
         }
         Err(e) => {
@@ -128,7 +129,7 @@ pub fn do_process(repo: &Repo, branch: &String, command: &String) -> Result<()> 
     Ok(())
 }
 
-fn do_task(command: &String) {
+fn do_task(command: &String, working_dir: &String) {
 
     let command: Vec<&str> = command.split(" ").collect();
     let dt = Utc::now();
@@ -147,6 +148,7 @@ fn do_task(command: &String) {
     
     println!("goa [{}]: running -> {} with args {:?}", dt, command_command, command_args);
     let output = Command::new(command_command)
+                    .current_dir(working_dir)
                     .args(command_args)
                     .output()
                     .expect("goa: Error -> failed to execute command");
@@ -157,7 +159,7 @@ fn do_task(command: &String) {
 
 }
 
-pub fn spy_for_changes(repo: Repo, branch: String, delay: u16, command: String) {
+pub fn spy_for_changes(repo: Repo, branch: String, delay: u16, command: String, working_dir: String) {
     let dt = Utc::now();
     println!("goa [{}]: checking for changes every {} seconds", dt, delay);
 
@@ -167,7 +169,7 @@ pub fn spy_for_changes(repo: Repo, branch: String, delay: u16, command: String) 
     // Add some tasks to it
     scheduler
         .every(delay.seconds())
-        .run(move || do_process(&repo, &branch, &command).expect("Error: unable to attach to local repo."));
+        .run(move || do_process(&repo, &branch, &command, &working_dir).expect("Error: unable to attach to local repo."));
     // Manually run the scheduler in an event loop
     loop {
         scheduler.run_pending();
