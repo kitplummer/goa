@@ -1,5 +1,6 @@
 mod cli;
 mod repos;
+mod git;
 
 use structopt::StructOpt;
 
@@ -11,7 +12,7 @@ fn main() -> anyhow::Result<()> {
     } = CommandLineArgs::from_args();
 
     match action {
-        Spy { url } => repos::spy_repo(url),
+        Spy { url, branch, delay, username, token } => repos::spy_repo(url, branch, delay, username, token),
     }?;
 
     Ok(())

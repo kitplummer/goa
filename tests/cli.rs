@@ -14,11 +14,21 @@ fn test_spy_repo_command_bad_url() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn test_spy_repo_command_good_url() -> Result<(), Box<dyn std::error::Error>> {
+fn test_help_command() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = Command::cargo_bin("goa")?;
-    cmd.arg("spy");
-    cmd.arg("https://github.com/kitplummer/goa");
+    cmd.arg("help");
     cmd.assert()
-        .stdout(predicates::str::contains("Spying repo:"));
+        .stdout(predicates::str::contains("A command-line GitOps utility agent"));
     Ok(())
 }
+// Gotta figure this one out, since it is a long-running proc
+
+// #[test]
+// fn test_spy_repo_command_good_url() -> Result<(), Box<dyn std::error::Error>> {
+//     let mut cmd = Command::cargo_bin("goa")?;
+//     cmd.arg("spy");
+//     cmd.arg("https://github.com/gtri/lowendinsight");
+//     cmd.assert()
+//         .stdout(predicates::str::contains("Spying repo \"https://github.com/gtri/lowendinsight\""));
+//     Ok(())
+// }
