@@ -19,6 +19,9 @@ pub enum Action {
         /// The access token for cloning and fetching of the remote repo
         #[structopt(short, long)]
         token: Option<String>,
+        /// The command to run when a change is detected
+        #[structopt(short, long)]
+        command: Option<String>,
     },
 }
 
