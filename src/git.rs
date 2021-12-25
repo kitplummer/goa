@@ -20,7 +20,6 @@ use git2::{
 use std::io::Write;
 use std::str;
 
-
 pub fn is_diff<'a>(
     repo: &'a git2::Repository,
     remote_name: &str,

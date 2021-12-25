@@ -85,11 +85,16 @@ pub fn spy_repo(
                 String::from(cloned_repo.path().to_str().unwrap()),
             );
 
+            let command = match command {
+                Some(command) => command,
+                None => String::from(""),
+            };
+
             // This is where the loop happens...
             // For thread safety, we're going to have to simply pass the repo struct through, and
             // recreate the Repository "object" in each thread.  Perhaps not most performant,
             // but only sane way to manage through the thread scheduler.
-            spy_for_changes(repo, branch, delay, command.unwrap());
+            spy_for_changes(repo, branch, delay, command);
 
             Ok(())
         }
@@ -125,10 +130,33 @@ pub fn do_process(repo: &Repo, branch: &String, command: &String) -> Result<()> 
 
 fn do_task(command: &String) {
 
-    let mut task: Vec<&str> = command.split(" ").collect();
+    let command: Vec<&str> = command.split(" ").collect();
     let dt = Utc::now();
     println!("goa [{}]: have a diff, processing the goa file", dt);
-    println!("goa [{}]: running -> {:?}", dt, task);
+    println!("goa [{}]: running -> {:?}", dt, command);
+
+    let mut command_command = "";
+    let mut command_args: Vec<&str> = [].to_vec();
+
+    for (pos, e) in command.iter().enumerate() {
+        if pos == 1 {
+            command_command = e;
+        } else {
+            command_args.push(e);
+        }
+    }
+    
+    let output = Command::new(command_command)
+                    .args(command_args)
+                    .output()
+                    .expect("goa: Error -> failed to execute command");
+
+    let dt = Utc::now();
+    println!("goa: [{}]: status: {}", dt, output.status);
+
+    println!("goa: [{}]: {}", dt, String::from_utf8_lossy(&output.stdout));
+
+
 
 }
 
@@ -160,6 +188,7 @@ mod tests {
             String::from("test"),
             String::from("branch"),
             120,
+            Some(String::from("test")),
             Some(String::from("test")),
             Some(String::from("test")),
         )
