@@ -12,7 +12,7 @@ fn main() -> anyhow::Result<()> {
     } = CommandLineArgs::from_args();
 
     match action {
-        Spy { url, branch, delay, username, token } => repos::spy_repo(url, branch, delay, username, token),
+        Spy { url, branch, delay, username, token, command } => repos::spy_repo(url, branch, delay, username, token, command),
     }?;
 
     Ok(())

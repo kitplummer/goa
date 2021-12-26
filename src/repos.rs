@@ -1,5 +1,8 @@
 use std::env::temp_dir;
 use std::io::{Error, ErrorKind, Result};
+use std::ops::DerefMut;
+use std::process::Command;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -44,6 +47,7 @@ pub fn spy_repo(
     delay: u16,
     username: Option<String>,
     token: Option<String>,
+    command: Option<String>,
 ) -> Result<()> {
 
     let dt = Utc::now();
@@ -83,11 +87,16 @@ pub fn spy_repo(
                 String::from(cloned_repo.path().to_str().unwrap()),
             );
 
+            let command = match command {
+                Some(command) => command,
+                None => String::from(""),
+            };
+
             // This is where the loop happens...
             // For thread safety, we're going to have to simply pass the repo struct through, and
             // recreate the Repository "object" in each thread.  Perhaps not most performant,
             // but only sane way to manage through the thread scheduler.
-            spy_for_changes(repo, branch, delay);
+            spy_for_changes(repo, branch, delay, command);
 
             Ok(())
         }
@@ -98,7 +107,7 @@ pub fn spy_repo(
     }
 }
 
-pub fn do_process(repo: &Repo, branch: &String) -> Result<()> {
+pub fn do_process(repo: &mut Repo, branch: &String, command: &String) -> Result<()> {
     // Get the real Repository
     let local_repo = match Repository::open(&repo.local_path) {
         Ok(local_repo) => local_repo,
@@ -109,8 +118,8 @@ pub fn do_process(repo: &Repo, branch: &String) -> Result<()> {
     println!("goa [{}]: checking for diffs at origin/{}!", dt, branch);
     match git::is_diff(&local_repo, "origin", &branch.to_string()) {
         Ok(commit) => {
-            do_task();
-            let _ = git::do_merge(&local_repo, "git2", commit);
+            do_task(&command, repo);
+            let _ = git::do_merge(&local_repo, branch, commit);
         }
         Err(e) => {
             let dt = Utc::now();
@@ -121,22 +130,51 @@ pub fn do_process(repo: &Repo, branch: &String) -> Result<()> {
     Ok(())
 }
 
-fn do_task() {
+fn do_task(command: &String, repo: &mut Repo) {
+
+    let command: Vec<&str> = command.split(" ").collect();
     let dt = Utc::now();
     println!("goa [{}]: have a diff, processing the goa file", dt);
+
+    let mut command_command = "";
+    let mut command_args: Vec<&str> = [].to_vec();
+
+    for (pos, e) in command.iter().enumerate() {
+        if pos == 0 {
+            command_command = e;
+        } else {
+            command_args.push(e);
+        }
+    }
+    
+    println!("goa [{}]: running -> {} with args {:?}", dt, command_command, command_args);
+    let output = Command::new(command_command)
+                    .current_dir(&repo.local_path)
+                    .args(command_args)
+                    .output()
+                    .expect("goa: Error -> failed to execute command");
+
+    let dt = Utc::now();
+    println!("goa: [{}]: command status: {}", dt, output.status);
+    println!("goa: [{}]: {}", dt, String::from_utf8_lossy(&output.stdout));
+
 }
 
-pub fn spy_for_changes(repo: Repo, branch: String, delay: u16) {
+pub fn spy_for_changes(repo: Repo, branch: String, delay: u16, command: String) {
     let dt = Utc::now();
     println!("goa [{}]: checking for changes every {} seconds", dt, delay);
 
     // Create a new scheduler
     let mut scheduler = Scheduler::new();
     let delay = delay as u32;
+    let cloned_repo = Arc::new(Mutex::new(repo.clone()));
     // Add some tasks to it
     scheduler
         .every(delay.seconds())
-        .run(move || do_process(&repo, &branch).expect("Error: unable to attach to local repo."));
+        .run(move || {
+            let mut mut_repo = cloned_repo.lock().unwrap();
+            do_process(mut_repo.deref_mut(), &branch, &command).expect("Error: unable to attach to local repo.")
+        });
     // Manually run the scheduler in an event loop
     loop {
         scheduler.run_pending();
@@ -154,6 +192,7 @@ mod tests {
             String::from("test"),
             String::from("branch"),
             120,
+            Some(String::from("test")),
             Some(String::from("test")),
             Some(String::from("test")),
         )
