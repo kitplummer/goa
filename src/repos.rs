@@ -23,16 +23,18 @@ pub struct Repo {
     pub url: String,
     pub status: String,
     pub local_path: String,
+    pub branch: String,
 }
 
 impl Repo {
-    pub fn new(url: String, local_path: String) -> Repo {
+    pub fn new(url: String, local_path: String, branch: String) -> Repo {
         // We'll initialize after the clone is successful.
         let status = String::from("cloned");
         Repo {
             url,
             status,
             local_path,
+            branch,
         }
     }
 
@@ -85,6 +87,7 @@ pub fn spy_repo(
             let repo = Repo::new(
                 String::from(parsed_url.as_str()),
                 String::from(cloned_repo.path().to_str().unwrap()),
+                branch,
             );
 
             let command = match command {
@@ -96,7 +99,7 @@ pub fn spy_repo(
             // For thread safety, we're going to have to simply pass the repo struct through, and
             // recreate the Repository "object" in each thread.  Perhaps not most performant,
             // but only sane way to manage through the thread scheduler.
-            spy_for_changes(repo, branch, delay, command);
+            spy_for_changes(repo, delay, command);
 
             Ok(())
         }
@@ -107,7 +110,7 @@ pub fn spy_repo(
     }
 }
 
-pub fn do_process(repo: &mut Repo, branch: &String, command: &String) -> Result<()> {
+pub fn do_process(repo: &mut Repo, command: &String) -> Result<()> {
     // Get the real Repository
     let local_repo = match Repository::open(&repo.local_path) {
         Ok(local_repo) => local_repo,
@@ -115,11 +118,11 @@ pub fn do_process(repo: &mut Repo, branch: &String, command: &String) -> Result<
     };
     
     let dt = Utc::now();
-    println!("goa [{}]: checking for diffs at origin/{}!", dt, branch);
-    match git::is_diff(&local_repo, "origin", &branch.to_string()) {
+    println!("goa [{}]: checking for diffs at origin/{}!", dt, repo.branch);
+    match git::is_diff(&local_repo, "origin", &repo.branch.to_string()) {
         Ok(commit) => {
             do_task(&command, repo);
-            let _ = git::do_merge(&local_repo, branch, commit);
+            let _ = git::do_merge(&local_repo, &repo.branch, commit);
         }
         Err(e) => {
             let dt = Utc::now();
@@ -160,7 +163,7 @@ fn do_task(command: &String, repo: &mut Repo) {
 
 }
 
-pub fn spy_for_changes(repo: Repo, branch: String, delay: u16, command: String) {
+pub fn spy_for_changes(repo: Repo, delay: u16, command: String) {
     let dt = Utc::now();
     println!("goa [{}]: checking for changes every {} seconds", dt, delay);
 
@@ -173,7 +176,7 @@ pub fn spy_for_changes(repo: Repo, branch: String, delay: u16, command: String) 
         .every(delay.seconds())
         .run(move || {
             let mut mut_repo = cloned_repo.lock().unwrap();
-            do_process(mut_repo.deref_mut(), &branch, &command).expect("Error: unable to attach to local repo.")
+            do_process(mut_repo.deref_mut(), &command).expect("Error: unable to attach to local repo.")
         });
     // Manually run the scheduler in an event loop
     loop {
