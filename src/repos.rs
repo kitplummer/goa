@@ -119,7 +119,7 @@ pub fn do_process(repo: &mut Repo, branch: &String, command: &String) -> Result<
     match git::is_diff(&local_repo, "origin", &branch.to_string()) {
         Ok(commit) => {
             do_task(&command, repo);
-            let _ = git::do_merge(&local_repo, "git2", commit);
+            let _ = git::do_merge(&local_repo, branch, commit);
         }
         Err(e) => {
             let dt = Utc::now();
