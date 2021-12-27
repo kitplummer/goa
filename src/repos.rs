@@ -92,7 +92,6 @@ pub fn spy_repo(
                 branch,
             );
 
-
             let command = match command {
                 Some(command) => command,
                 // TODO: if no command, we'll assume we need to
@@ -101,11 +100,12 @@ pub fn spy_repo(
                 // that is elsewhere in the repo.  And if there is
                 // no .goa file, we'll panic.
                 None => {
-                    let dt = Utc::now();
-                    println!("goa [{}]: reading command from .goa file at {}", dt, goa_path);
                     if std::path::Path::new(&goa_path).exists() {
 
-                        String::from("echo 'reading from .goa'")
+                        let dt = Utc::now();
+                        println!("goa [{}]: reading command from .goa file at {}", dt, goa_path);
+                        std::fs::read_to_string(goa_path).expect("Error - failed to read .goa file")
+
                     } else {
                         let dt = Utc::now();
                         eprintln!("goa [{}]: Error - no command given, nor a .goa file found in the rep", dt);
