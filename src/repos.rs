@@ -18,6 +18,8 @@ use uuid::Uuid;
 
 use crate::git;
 
+// TODO: replace all panic!s with exits
+
 #[derive(Debug, Clone)]
 pub struct Repo {
     pub url: String,
@@ -74,9 +76,9 @@ pub fn spy_repo(
             // Get a temp directory to do work in
             let temp_dir = temp_dir();
             let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
-            local_path.push_str("/goa_wd/");
-
             let tmp_dir_name = format!("{}", Uuid::new_v4());
+            let goa_path = format!("{}/goa_wd/{}/.goa", local_path, tmp_dir_name);
+            local_path.push_str("/goa_wd/");
             local_path.push_str(&String::from(tmp_dir_name));
 
             // TODO: investigate shallow clone here
@@ -90,9 +92,26 @@ pub fn spy_repo(
                 branch,
             );
 
+
             let command = match command {
                 Some(command) => command,
-                None => String::from(""),
+                // TODO: if no command, we'll assume we need to
+                // read directory from the repo's .goa file and
+                // pass it on here.  It could be running a script
+                // that is elsewhere in the repo.  And if there is
+                // no .goa file, we'll panic.
+                None => {
+                    let dt = Utc::now();
+                    println!("goa [{}]: reading command from .goa file at {}", dt, goa_path);
+                    if std::path::Path::new(&goa_path).exists() {
+
+                        String::from("echo 'reading from .goa'")
+                    } else {
+                        let dt = Utc::now();
+                        eprintln!("goa [{}]: Error - no command given, nor a .goa file found in the rep", dt);
+                        std::process::exit(1);
+                    }
+                },
             };
 
             // This is where the loop happens...
