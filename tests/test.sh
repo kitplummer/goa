@@ -1,3 +1,3 @@
 #!/bin/bash
 
-cargo test
+echo 'hello from goa!'
