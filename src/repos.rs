@@ -173,7 +173,6 @@ fn do_task(command: &String, repo: &mut Repo) {
     println!("goa: [{}]: command status: {}", dt, output.status);
     println!("goa: [{}]: command stdout:\n{}", dt, String::from_utf8_lossy(&output.stdout));
     println!("goa: [{}]: command stderr:\n{}", dt, String::from_utf8_lossy(&output.stderr));
-
 }
 
 pub fn spy_for_changes(repo: Repo, delay: u16, command: String) {
