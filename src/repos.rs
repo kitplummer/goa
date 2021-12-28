@@ -86,9 +86,11 @@ pub fn spy_repo(
                 Ok(repo) => repo,
                 Err(e) => panic!("Error: Failed to clone {}", e),
             };
+            let repo_path = cloned_repo.workdir().unwrap();
+
             let repo = Repo::new(
                 String::from(parsed_url.as_str()),
-                String::from(cloned_repo.path().to_str().unwrap()),
+                String::from(repo_path.to_str().unwrap()),
                 branch,
             );
 
