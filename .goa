@@ -1,1 +1,1 @@
-tests/test.sh
+sh tests/test.sh
