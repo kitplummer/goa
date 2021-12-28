@@ -104,7 +104,6 @@ pub fn spy_repo(
                         let dt = Utc::now();
                         println!("goa [{}]: reading command from .goa file at {}", dt, goa_path);
                         std::fs::read_to_string(goa_path).expect("Error - failed to read .goa file")
-
                     } else {
                         let dt = Utc::now();
                         eprintln!("goa [{}]: Error - no command given, nor a .goa file found in the rep", dt);
