@@ -170,6 +170,7 @@ fn do_task(command: &String, repo: &mut Repo) {
                     .expect("goa: Error -> failed to execute command");
 
     let dt = Utc::now();
+    println!("goa debug: path -> {}", &repo.local_path);
     println!("goa: [{}]: command status: {}", dt, output.status);
     println!("goa: [{}]: command stdout:\n{}", dt, String::from_utf8_lossy(&output.stdout));
     println!("goa: [{}]: command stderr:\n{}", dt, String::from_utf8_lossy(&output.stderr));
