@@ -101,7 +101,6 @@ pub fn spy_repo(
                 // no .goa file, we'll panic.
                 None => {
                     if std::path::Path::new(&goa_path).exists() {
-
                         let dt = Utc::now();
                         println!("goa [{}]: reading command from .goa file at {}", dt, goa_path);
                         std::fs::read_to_string(goa_path).expect("Error - failed to read .goa file")
