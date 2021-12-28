@@ -1,3 +1,3 @@
 #!/bin/bash
 
-echo 'hello from goa!'
+echo 'hello from goa, merged!'
