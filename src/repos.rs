@@ -94,11 +94,6 @@ pub fn spy_repo(
 
             let command = match command {
                 Some(command) => command,
-                // TODO: if no command, we'll assume we need to
-                // read directory from the repo's .goa file and
-                // pass it on here.  It could be running a script
-                // that is elsewhere in the repo.  And if there is
-                // no .goa file, we'll panic.
                 None => {
                     if std::path::Path::new(&goa_path).exists() {
                         let dt = Utc::now();
