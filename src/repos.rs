@@ -135,8 +135,16 @@ pub fn do_process(repo: &mut Repo, command: &String) -> Result<()> {
     println!("goa [{}]: checking for diffs at origin/{}!", dt, repo.branch);
     match git::is_diff(&local_repo, "origin", &repo.branch.to_string()) {
         Ok(commit) => {
-            do_task(&command, repo);
-            let _ = git::do_merge(&local_repo, &repo.branch, commit);
+            // TODO - think this needs to merge first, to get the update
+            // from the .goa file.
+            match git::do_merge(&local_repo, &repo.branch, commit) {
+              Ok(()) => do_task(&command, repo),
+              Err(e) => {
+                let dt = Utc::now();
+                println!("goa [{}]: {}", dt, e);
+              }
+
+            }
         }
         Err(e) => {
             let dt = Utc::now();
