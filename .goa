@@ -1,1 +1,1 @@
-/usr/bin/sh tests/test.sh
+/usr/bin/sh ./tests/test.sh
