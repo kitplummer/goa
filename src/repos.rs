@@ -18,6 +18,8 @@ use uuid::Uuid;
 
 use crate::git;
 
+// TODO: replace all panic!s with exits
+
 #[derive(Debug, Clone)]
 pub struct Repo {
     pub url: String,
@@ -74,9 +76,9 @@ pub fn spy_repo(
             // Get a temp directory to do work in
             let temp_dir = temp_dir();
             let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
-            local_path.push_str("/goa_wd/");
-
             let tmp_dir_name = format!("{}", Uuid::new_v4());
+            let goa_path = format!("{}/goa_wd/{}/.goa", local_path, tmp_dir_name);
+            local_path.push_str("/goa_wd/");
             local_path.push_str(&String::from(tmp_dir_name));
 
             // TODO: investigate shallow clone here
@@ -84,15 +86,27 @@ pub fn spy_repo(
                 Ok(repo) => repo,
                 Err(e) => panic!("Error: Failed to clone {}", e),
             };
+            let repo_path = cloned_repo.workdir().unwrap();
+
             let repo = Repo::new(
                 String::from(parsed_url.as_str()),
-                String::from(cloned_repo.path().to_str().unwrap()),
+                String::from(repo_path.to_str().unwrap()),
                 branch,
             );
 
             let command = match command {
                 Some(command) => command,
-                None => String::from(""),
+                None => {
+                    if std::path::Path::new(&goa_path).exists() {
+                        let dt = Utc::now();
+                        println!("goa [{}]: reading command from .goa file at {}", dt, goa_path);
+                        std::fs::read_to_string(goa_path).expect("Error - failed to read .goa file")
+                    } else {
+                        let dt = Utc::now();
+                        eprintln!("goa [{}]: Error - no command given, nor a .goa file found in the rep", dt);
+                        std::process::exit(1);
+                    }
+                },
             };
 
             // This is where the loop happens...
@@ -121,8 +135,16 @@ pub fn do_process(repo: &mut Repo, command: &String) -> Result<()> {
     println!("goa [{}]: checking for diffs at origin/{}!", dt, repo.branch);
     match git::is_diff(&local_repo, "origin", &repo.branch.to_string()) {
         Ok(commit) => {
-            do_task(&command, repo);
-            let _ = git::do_merge(&local_repo, &repo.branch, commit);
+            // TODO - think this needs to merge first, to get the update
+            // from the .goa file.
+            match git::do_merge(&local_repo, &repo.branch, commit) {
+              Ok(()) => do_task(&command, repo),
+              Err(e) => {
+                let dt = Utc::now();
+                println!("goa [{}]: {}", dt, e);
+              }
+
+            }
         }
         Err(e) => {
             let dt = Utc::now();
@@ -158,9 +180,10 @@ fn do_task(command: &String, repo: &mut Repo) {
                     .expect("goa: Error -> failed to execute command");
 
     let dt = Utc::now();
+    println!("goa debug: path -> {}", &repo.local_path);
     println!("goa: [{}]: command status: {}", dt, output.status);
-    println!("goa: [{}]: {}", dt, String::from_utf8_lossy(&output.stdout));
-
+    println!("goa: [{}]: command stdout:\n{}", dt, String::from_utf8_lossy(&output.stdout));
+    println!("goa: [{}]: command stderr:\n{}", dt, String::from_utf8_lossy(&output.stderr));
 }
 
 pub fn spy_for_changes(repo: Repo, delay: u16, command: String) {
