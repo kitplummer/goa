@@ -12,10 +12,11 @@
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
-use chrono::Utc;
+use chrono::{NaiveDateTime, Utc};
 use git2::{
     AutotagOption, Diff, DiffStatsFormat, FetchOptions, Object, ObjectType, RemoteCallbacks,
     Repository,
+    Commit,
 };
 use std::io::Write;
 use std::str;
@@ -77,14 +78,17 @@ pub fn is_diff<'a>(
             .unwrap(),
         (_, _) => unreachable!(),
     };
-    // TODO: make this a verbose thing
-    print_stats(&diff).expect("ERROR: unable to print diff stats");
 
     if diff.deltas().len() > 0 {
+        // TODO: make this a verbose thing
+        display_stats(&diff).expect("ERROR: unable to print diff stats");
+        let commit = find_last_commit(&repo).expect("Couldn't find last commit");
+        display_commit(&commit);
         let fetch_head = repo.find_reference("FETCH_HEAD")?;
         repo.reference_to_annotated_commit(&fetch_head)
     } else {
-        return Err(git2::Error::from_str("No diffs, back to sleep. :)"));
+        let msg = format!("no diffs, back to sleep.");
+        return Err(git2::Error::from_str(&msg));
     }
 }
 
@@ -107,13 +111,30 @@ pub fn tree_to_treeish<'a>(
     Ok(Some(tree))
 }
 
-fn print_stats(diff: &Diff) -> Result<(), git2::Error> {
+fn display_stats(diff: &Diff) -> Result<(), git2::Error> {
     let stats = diff.stats().unwrap();
     let format = DiffStatsFormat::FULL;
     let buf = stats.to_buf(format, 80).unwrap();
     let dt = Utc::now();
     print!("goa [{}]: {}", dt, std::str::from_utf8(&*buf).unwrap());
     Ok(())
+}
+
+fn find_last_commit(repo: &Repository) -> Result<Commit, git2::Error> {
+    let obj = repo.head()?.resolve()?.peel(ObjectType::Commit)?;
+    obj.into_commit().map_err(|_| git2::Error::from_str("Couldn't find commit"))
+}
+
+fn display_commit(commit: &Commit) {
+    let timestamp = commit.time().seconds();
+    let tm = NaiveDateTime::from_timestamp(timestamp, 0);
+    let dt = Utc::now();
+    println!("goa [{}]: commit {}\nAuthor: {}\nDate:   {}\n\n    {}",
+            dt, 
+            commit.id(),
+            commit.author(),
+            tm,
+            commit.message().unwrap_or("no commit message"));
 }
 
 fn fast_forward(
