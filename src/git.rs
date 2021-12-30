@@ -129,7 +129,7 @@ fn display_commit(commit: &Commit) {
     let timestamp = commit.time().seconds();
     let tm = NaiveDateTime::from_timestamp(timestamp, 0);
     let dt = Utc::now();
-    println!("goa [{}]: commit\ncommit {}\nAuthor: {}\nDate:   {}\n\n    {}",
+    println!("goa [{}]: commit {}\nAuthor: {}\nDate:   {}\n\n    {}",
             dt, 
             commit.id(),
             commit.author(),
