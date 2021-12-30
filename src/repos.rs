@@ -26,10 +26,18 @@ pub struct Repo {
     pub status: String,
     pub local_path: String,
     pub branch: String,
+    pub command: String,
+    pub delay: u16,
 }
 
 impl Repo {
-    pub fn new(url: String, local_path: String, branch: String) -> Repo {
+    pub fn new(
+        url: String,
+        local_path: String,
+        branch: String,
+        command: String,
+        delay: u16
+    ) -> Repo {
         // We'll initialize after the clone is successful.
         let status = String::from("cloned");
         Repo {
@@ -37,12 +45,10 @@ impl Repo {
             status,
             local_path,
             branch,
+            command,
+            delay,
         }
     }
-
-    // pub fn contain_goa_file() -> bool {
-    //     false
-    // }
 }
 
 pub fn spy_repo(
@@ -87,13 +93,6 @@ pub fn spy_repo(
                 Err(e) => panic!("Error: Failed to clone {}", e),
             };
             let repo_path = cloned_repo.workdir().unwrap();
-
-            let repo = Repo::new(
-                String::from(parsed_url.as_str()),
-                String::from(repo_path.to_str().unwrap()),
-                branch,
-            );
-
             let command = match command {
                 Some(command) => command,
                 None => {
@@ -108,12 +107,19 @@ pub fn spy_repo(
                     }
                 },
             };
+            let repo = Repo::new(
+                String::from(parsed_url.as_str()),
+                String::from(repo_path.to_str().unwrap()),
+                branch,
+                command,
+                delay,
+            );
 
             // This is where the loop happens...
             // For thread safety, we're going to have to simply pass the repo struct through, and
             // recreate the Repository "object" in each thread.  Perhaps not most performant,
             // but only sane way to manage through the thread scheduler.
-            spy_for_changes(repo, delay, command);
+            spy_for_changes(repo);
 
             Ok(())
         }
@@ -186,20 +192,20 @@ fn do_task(command: &String, repo: &mut Repo) {
     println!("goa: [{}]: command stderr:\n{}", dt, String::from_utf8_lossy(&output.stderr));
 }
 
-pub fn spy_for_changes(repo: Repo, delay: u16, command: String) {
+pub fn spy_for_changes(repo: Repo) {
     let dt = Utc::now();
-    println!("goa [{}]: checking for changes every {} seconds", dt, delay);
+    println!("goa [{}]: checking for changes every {} seconds", dt, repo.delay);
 
     // Create a new scheduler
     let mut scheduler = Scheduler::new();
-    let delay = delay as u32;
+    let delay = repo.delay as u32;
     let cloned_repo = Arc::new(Mutex::new(repo.clone()));
     // Add some tasks to it
     scheduler
         .every(delay.seconds())
         .run(move || {
             let mut mut_repo = cloned_repo.lock().unwrap();
-            do_process(mut_repo.deref_mut(), &command).expect("Error: unable to attach to local repo.")
+            do_process(mut_repo.deref_mut(), &repo.command).expect("Error: unable to attach to local repo.")
         });
     // Manually run the scheduler in an event loop
     loop {

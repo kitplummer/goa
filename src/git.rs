@@ -96,7 +96,13 @@ pub fn tree_to_treeish<'a>(
         Some(s) => s,
         None => return Ok(None),
     };
-    let obj = repo.revparse_single(arg).unwrap();
+    let obj = match repo.revparse_single(arg) {
+        Ok(obj) => obj,
+        Err(_) => {
+            println!("Error: branch not found");
+            std::process::exit(1);
+        },
+    };
     let tree = obj.peel(ObjectType::Tree).unwrap();
     Ok(Some(tree))
 }
