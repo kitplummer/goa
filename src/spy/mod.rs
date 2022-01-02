@@ -87,3 +87,28 @@ pub fn spy_repo(
         )),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_spy_repo_with_bad_url() {
+        let res = spy_repo(
+            String::from("test"),
+            String::from("branch"),
+            120,
+            Some(String::from("test")),
+            Some(String::from("test")),
+            Some(String::from("test")),
+        )
+        .map_err(|e| e.kind());
+
+        assert_eq!(Err(ErrorKind::InvalidData), res);
+    }
+
+    // #[test]
+    // fn test_contain_a_goa_file() {
+    //     assert!(true);
+    // }
+}
