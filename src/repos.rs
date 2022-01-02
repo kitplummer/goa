@@ -1,5 +1,4 @@
-use std::env::temp_dir;
-use std::io::{Error, ErrorKind, Result};
+use std::io::Result;
 use std::ops::DerefMut;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
@@ -13,8 +12,6 @@ use chrono::{Utc};
 use clokwerk::{Scheduler, TimeUnits};
 
 use git2::Repository;
-use url::Url;
-use uuid::Uuid;
 
 use crate::git;
 
@@ -49,168 +46,87 @@ impl Repo {
             delay,
         }
     }
-}
 
-pub fn spy_repo(
-    url: String,
-    branch: String,
-    delay: u16,
-    username: Option<String>,
-    token: Option<String>,
-    command: Option<String>,
-) -> Result<()> {
+    pub fn spy_for_changes(&self) {
+        let dt = Utc::now();
+        println!("goa [{}]: checking for changes every {} seconds", dt, self.delay);
 
-    let dt = Utc::now();
-    println!("goa [{}]: starting to spy {}:{}", dt, url, branch);
-    let parsed_url = Url::parse(&url);
-
-    match parsed_url {
-        Ok(mut parsed_url) => {
-            if let Some(username) = username {
-                if let Err(e) = parsed_url.set_username(&username) {
-                    panic!("Error: {:?}", e)
-                };
-            }
-
-            if let Some(token) = token {
-                let token_str: &str = &token[..];
-                if let Err(e) = parsed_url.set_password(Option::from(token_str)) {
-                    panic!("Error: {:?}", e)
-                };
-            }
-
-            // Get a temp directory to do work in
-            let temp_dir = temp_dir();
-            let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
-            let tmp_dir_name = format!("{}", Uuid::new_v4());
-            let goa_path = format!("{}/goa_wd/{}/.goa", local_path, tmp_dir_name);
-            local_path.push_str("/goa_wd/");
-            local_path.push_str(&String::from(tmp_dir_name));
-
-            // TODO: investigate shallow clone here
-            let cloned_repo = match Repository::clone(parsed_url.as_str(), local_path) {
-                Ok(repo) => repo,
-                Err(e) => panic!("Error: Failed to clone {}", e),
-            };
-            let repo_path = cloned_repo.workdir().unwrap();
-            let command = match command {
-                Some(command) => command,
-                None => {
-                    if std::path::Path::new(&goa_path).exists() {
-                        let dt = Utc::now();
-                        println!("goa [{}]: reading command from .goa file at {}", dt, goa_path);
-                        std::fs::read_to_string(goa_path).expect("Error - failed to read .goa file")
-                    } else {
-                        let dt = Utc::now();
-                        eprintln!("goa [{}]: Error - no command given, nor a .goa file found in the rep", dt);
-                        std::process::exit(1);
-                    }
-                },
-            };
-            let repo = Repo::new(
-                String::from(parsed_url.as_str()),
-                String::from(repo_path.to_str().unwrap()),
-                branch,
-                command,
-                delay,
-            );
-
-            // This is where the loop happens...
-            // For thread safety, we're going to have to simply pass the repo struct through, and
-            // recreate the Repository "object" in each thread.  Perhaps not most performant,
-            // but only sane way to manage through the thread scheduler.
-            spy_for_changes(repo);
-
-            Ok(())
+        // Create a new scheduler
+        let mut scheduler = Scheduler::new();
+        let delay = self.delay as u32;
+        let cloned_repo = Arc::new(Mutex::new(self.clone()));
+        // Add some tasks to it
+        scheduler
+            .every(delay.seconds())
+            .run(move || {
+                self.do_process(&self.command).expect("Error: unable to attach to local repo.")
+            });
+        // Manually run the scheduler in an event loop
+        loop {
+            scheduler.run_pending();
+            thread::sleep(Duration::from_millis(10));
         }
-        Err(e) => Err(Error::new(
-            ErrorKind::InvalidData,
-            format!("Error: Invalid URL {}", e),
-        )),
     }
-}
 
-pub fn do_process(repo: &mut Repo, command: &String) -> Result<()> {
-    // Get the real Repository
-    let local_repo = match Repository::open(&repo.local_path) {
-        Ok(local_repo) => local_repo,
-        Err(e) => panic!("failed to open: {}", e),
-    };
-    
-    let dt = Utc::now();
-    println!("goa [{}]: checking for diffs at origin/{}!", dt, repo.branch);
-    match git::is_diff(&local_repo, "origin", &repo.branch.to_string()) {
-        Ok(commit) => {
-            // TODO - think this needs to merge first, to get the update
-            // from the .goa file.
-            match git::do_merge(&local_repo, &repo.branch, commit) {
-              Ok(()) => do_task(&command, repo),
-              Err(e) => {
+    pub fn do_process(&self, command: &String) -> Result<()> {
+        // Get the real Repository
+        let local_repo = match Repository::open(&self.local_path) {
+            Ok(local_repo) => local_repo,
+            Err(e) => panic!("failed to open: {}", e),
+        };
+        
+        let dt = Utc::now();
+        println!("goa [{}]: checking for diffs at origin/{}!", dt, self.branch);
+        match git::is_diff(&local_repo, "origin", &self.branch.to_string()) {
+            Ok(commit) => {
+                // TODO - think this needs to merge first, to get the update
+                // from the .goa file.
+                match git::do_merge(&local_repo, &self.branch, commit) {
+                Ok(()) => self.do_task(&command),
+                Err(e) => {
+                    let dt = Utc::now();
+                    println!("goa [{}]: {}", dt, e);
+                }
+
+                }
+            }
+            Err(e) => {
                 let dt = Utc::now();
                 println!("goa [{}]: {}", dt, e);
-              }
-
             }
         }
-        Err(e) => {
-            let dt = Utc::now();
-            println!("goa [{}]: {}", dt, e);
-        }
+
+        Ok(())
     }
 
-    Ok(())
-}
+    fn do_task(&self, command: &String) {
+        let command: Vec<&str> = command.split(" ").collect();
+        let dt = Utc::now();
+        println!("goa [{}]: have a diff, processing the goa file", dt);
 
-fn do_task(command: &String, repo: &mut Repo) {
+        let mut command_command = "";
+        let mut command_args: Vec<&str> = [].to_vec();
 
-    let command: Vec<&str> = command.split(" ").collect();
-    let dt = Utc::now();
-    println!("goa [{}]: have a diff, processing the goa file", dt);
-
-    let mut command_command = "";
-    let mut command_args: Vec<&str> = [].to_vec();
-
-    for (pos, e) in command.iter().enumerate() {
-        if pos == 0 {
-            command_command = e;
-        } else {
-            command_args.push(e);
+        for (pos, e) in command.iter().enumerate() {
+            if pos == 0 {
+                command_command = e;
+            } else {
+                command_args.push(e);
+            }
         }
-    }
-    
-    println!("goa [{}]: running -> {} with args {:?}", dt, command_command, command_args);
-    let output = Command::new(command_command)
-                    .current_dir(&repo.local_path)
-                    .args(command_args)
-                    .output()
-                    .expect("goa: Error -> failed to execute command");
+        
+        println!("goa [{}]: running -> {} with args {:?}", dt, command_command, command_args);
+        let output = Command::new(command_command)
+                        .current_dir(&self.local_path)
+                        .args(command_args)
+                        .output()
+                        .expect("goa: Error -> failed to execute command");
 
-    let dt = Utc::now();
-    println!("goa debug: path -> {}", &repo.local_path);
-    println!("goa: [{}]: command status: {}", dt, output.status);
-    println!("goa: [{}]: command stdout:\n{}", dt, String::from_utf8_lossy(&output.stdout));
-    println!("goa: [{}]: command stderr:\n{}", dt, String::from_utf8_lossy(&output.stderr));
-}
-
-pub fn spy_for_changes(repo: Repo) {
-    let dt = Utc::now();
-    println!("goa [{}]: checking for changes every {} seconds", dt, repo.delay);
-
-    // Create a new scheduler
-    let mut scheduler = Scheduler::new();
-    let delay = repo.delay as u32;
-    let cloned_repo = Arc::new(Mutex::new(repo.clone()));
-    // Add some tasks to it
-    scheduler
-        .every(delay.seconds())
-        .run(move || {
-            let mut mut_repo = cloned_repo.lock().unwrap();
-            do_process(mut_repo.deref_mut(), &repo.command).expect("Error: unable to attach to local repo.")
-        });
-    // Manually run the scheduler in an event loop
-    loop {
-        scheduler.run_pending();
-        thread::sleep(Duration::from_millis(10));
+        let dt = Utc::now();
+        println!("goa debug: path -> {}", &self.local_path);
+        println!("goa: [{}]: command status: {}", dt, output.status);
+        println!("goa: [{}]: command stdout:\n{}", dt, String::from_utf8_lossy(&output.stdout));
+        println!("goa: [{}]: command stderr:\n{}", dt, String::from_utf8_lossy(&output.stderr));
     }
 }
 
