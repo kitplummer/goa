@@ -14,9 +14,8 @@
 
 use chrono::{NaiveDateTime, Utc};
 use git2::{
-    AutotagOption, Diff, DiffStatsFormat, FetchOptions, Object, ObjectType, RemoteCallbacks,
-    Repository,
-    Commit,
+    AutotagOption, Commit, Diff, DiffStatsFormat, FetchOptions, Object, ObjectType,
+    RemoteCallbacks, Repository,
 };
 use std::io::Write;
 use std::str;
@@ -33,7 +32,11 @@ pub fn is_diff<'a>(
         .unwrap();
     cb.sideband_progress(|data| {
         let dt = Utc::now();
-        print!("goa [{}]: remote: {}", dt, std::str::from_utf8(data).unwrap());
+        print!(
+            "goa [{}]: remote: {}",
+            dt,
+            std::str::from_utf8(data).unwrap()
+        );
         std::io::stdout().flush().unwrap();
         true
     });
@@ -105,7 +108,7 @@ pub fn tree_to_treeish<'a>(
         Err(_) => {
             println!("Error: branch not found");
             std::process::exit(1);
-        },
+        }
     };
     let tree = obj.peel(ObjectType::Tree).unwrap();
     Ok(Some(tree))
@@ -122,19 +125,22 @@ fn display_stats(diff: &Diff) -> Result<(), git2::Error> {
 
 fn find_last_commit(repo: &Repository) -> Result<Commit, git2::Error> {
     let obj = repo.head()?.resolve()?.peel(ObjectType::Commit)?;
-    obj.into_commit().map_err(|_| git2::Error::from_str("Couldn't find commit"))
+    obj.into_commit()
+        .map_err(|_| git2::Error::from_str("Couldn't find commit"))
 }
 
 fn display_commit(commit: &Commit) {
     let timestamp = commit.time().seconds();
     let tm = NaiveDateTime::from_timestamp(timestamp, 0);
     let dt = Utc::now();
-    println!("goa [{}]: commit {}\nAuthor: {}\nDate:   {}\n\n    {}",
-            dt, 
-            commit.id(),
-            commit.author(),
-            tm,
-            commit.message().unwrap_or("no commit message"));
+    println!(
+        "goa [{}]: commit {}\nAuthor: {}\nDate:   {}\n\n    {}",
+        dt,
+        commit.id(),
+        commit.author(),
+        tm,
+        commit.message().unwrap_or("no commit message")
+    );
 }
 
 fn fast_forward(

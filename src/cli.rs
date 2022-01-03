@@ -26,13 +26,9 @@ pub enum Action {
 }
 
 #[derive(Debug, StructOpt)]
-#[structopt(
-    name = "goa",
-    about = "A command-line GitOps utility agent"
-)]
+#[structopt(name = "goa", about = "A command-line GitOps utility agent")]
 
 pub struct CommandLineArgs {
     #[structopt(subcommand)]
     pub action: Action,
 }
-
