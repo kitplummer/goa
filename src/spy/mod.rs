@@ -2,12 +2,12 @@ use std::env::temp_dir;
 use std::io::{Error, ErrorKind, Result};
 
 // For datetime/timestamp/log
-use chrono::{Utc};
+use chrono::Utc;
 use git2::Repository;
 use url::Url;
 use uuid::Uuid;
 
-use crate::repos::{Repo};
+use crate::repos::Repo;
 
 pub fn spy_repo(
     url: String,
@@ -17,7 +17,6 @@ pub fn spy_repo(
     token: Option<String>,
     command: Option<String>,
 ) -> Result<()> {
-
     let dt = Utc::now();
     println!("goa [{}]: starting to spy {}:{}", dt, url, branch);
     let parsed_url = Url::parse(&url);
@@ -56,14 +55,20 @@ pub fn spy_repo(
                 None => {
                     if std::path::Path::new(&goa_path).exists() {
                         let dt = Utc::now();
-                        println!("goa [{}]: reading command from .goa file at {}", dt, goa_path);
+                        println!(
+                            "goa [{}]: reading command from .goa file at {}",
+                            dt, goa_path
+                        );
                         std::fs::read_to_string(goa_path).expect("Error - failed to read .goa file")
                     } else {
                         let dt = Utc::now();
-                        eprintln!("goa [{}]: Error - no command given, nor a .goa file found in the rep", dt);
+                        eprintln!(
+                            "goa [{}]: Error - no command given, nor a .goa file found in the rep",
+                            dt
+                        );
                         std::process::exit(1);
                     }
-                },
+                }
             };
             let repo = Repo::new(
                 String::from(parsed_url.as_str()),
