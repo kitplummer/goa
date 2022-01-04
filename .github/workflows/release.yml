@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
-          bin: ...
+          bin: goa
           # (optional) Archive name (non-extension portion of filename) to be uploaded.
           # [default value: $bin-$target]
           # [possible values: the following variables and any string]
