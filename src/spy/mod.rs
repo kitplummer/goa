@@ -47,7 +47,14 @@ pub fn spy_repo(
             // TODO: investigate shallow clone here
             let cloned_repo = match Repository::clone(parsed_url.as_str(), local_path) {
                 Ok(repo) => repo,
-                Err(e) => panic!("Error: Failed to clone {}", e),
+                Err(_e) => {
+                    let dt = Utc::now();
+                        eprintln!(
+                            "goa [{}]: Error - failed to clone, possible invalid URL or path.",
+                            dt
+                        );
+                        std::process::exit(1);
+                },
             };
             let repo_path = cloned_repo.workdir().unwrap();
             let command = match command {
