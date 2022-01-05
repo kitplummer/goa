@@ -237,6 +237,8 @@ pub fn do_merge<'a>(
                 ))?;
             }
         };
+        let commit = find_last_commit(&repo).expect("Couldn't find last commit");
+        display_commit(&commit);
     } else if analysis.0.is_normal() {
         // do a normal merge
         let head_commit = repo.reference_to_annotated_commit(&repo.head()?)?;
