@@ -119,8 +119,4 @@ mod tests {
         assert_eq!(Err(ErrorKind::InvalidData), res);
     }
 
-    // #[test]
-    // fn test_contain_a_goa_file() {
-    //     assert!(true);
-    // }
 }
