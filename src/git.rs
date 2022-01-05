@@ -85,8 +85,6 @@ pub fn is_diff<'a>(
     if diff.deltas().len() > 0 {
         // TODO: make this a verbose thing
         display_stats(&diff).expect("ERROR: unable to print diff stats");
-        let commit = find_last_commit(&repo).expect("Couldn't find last commit");
-        display_commit(&commit);
         let fetch_head = repo.find_reference("FETCH_HEAD")?;
         repo.reference_to_annotated_commit(&fetch_head)
     } else {
@@ -239,10 +237,14 @@ pub fn do_merge<'a>(
                 ))?;
             }
         };
+        let commit = find_last_commit(&repo).expect("Couldn't find last commit");
+        display_commit(&commit);
     } else if analysis.0.is_normal() {
         // do a normal merge
         let head_commit = repo.reference_to_annotated_commit(&repo.head()?)?;
         normal_merge(&repo, &head_commit, &fetch_commit)?;
+        let commit = find_last_commit(&repo).expect("Couldn't find last commit");
+        display_commit(&commit);
     } else {
         println!("Error: Nothing to do?");
     }
