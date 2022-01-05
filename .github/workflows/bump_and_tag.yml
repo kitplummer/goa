@@ -23,3 +23,5 @@ jobs:
       with:
         tag: ${{ steps.bump-semver.outputs.new_version }}
         message: '${{ steps.bump-semver.outputs.new_version }}: PR #${{ github.event.pull_request.number }} ${{ github.event.pull_request.title }}'
+      env:
+        GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}

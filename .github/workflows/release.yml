@@ -30,7 +30,7 @@ jobs:
           files: |
             target/release/goa
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
 
   build-win:
     runs-on: windows-latest
@@ -55,7 +55,7 @@ jobs:
         with:
           files: target/release/goa.exe
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
 
   build-mac:
     runs-on: macos-latest
@@ -82,4 +82,4 @@ jobs:
           files: |
             target/release/goa
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
