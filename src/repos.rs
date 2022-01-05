@@ -15,8 +15,6 @@ use git2::Repository;
 
 use crate::git;
 
-// TODO: replace all panic!s with exits
-
 #[derive(Debug, Clone)]
 pub struct Repo {
     pub url: String,
@@ -73,12 +71,15 @@ impl Repo {
 
 pub fn do_process(repo: &mut Repo) -> Result<()> {
     // Get the real Repository
+    let dt = Utc::now();
     let local_repo = match Repository::open(&repo.local_path) {
         Ok(local_repo) => local_repo,
-        Err(e) => panic!("failed to open: {}", e),
+        Err(_e) => {
+            println!("goa [{}]: failed to open the cloned repo", dt);
+            std::process::exit(1); 
+        }
     };
 
-    let dt = Utc::now();
     println!(
         "goa [{}]: checking for diffs at origin/{}!",
         dt, repo.branch
