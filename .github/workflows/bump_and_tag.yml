@@ -18,7 +18,7 @@ jobs:
         WITH_V: true
   release-linux:
     runs-on: ubuntu-latest
-
+    needs: tag
     steps:
       - name: Checkout
         uses: actions/checkout@v1
@@ -43,7 +43,7 @@ jobs:
 
   release-win:
     runs-on: windows-latest
-
+    needs: tag
     steps:
       - name: Checkout
         uses: actions/checkout@v1
@@ -67,7 +67,7 @@ jobs:
 
   release-mac:
     runs-on: macos-latest
-
+    needs: tag
     steps:
       - name: Checkout
         uses: actions/checkout@v1
