@@ -18,7 +18,8 @@ fn main() -> anyhow::Result<()> {
             username,
             token,
             command,
-        } => spy::spy_repo(url, branch, delay, username, token, command),
+            verbosity,
+        } => spy::spy_repo(url, branch, delay, username, token, command, verbosity),
     }?;
 
     Ok(())

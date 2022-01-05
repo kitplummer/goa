@@ -16,6 +16,7 @@ pub fn spy_repo(
     username: Option<String>,
     token: Option<String>,
     command: Option<String>,
+    verbosity: u8,
 ) -> Result<()> {
     let dt = Utc::now();
     println!("goa [{}]: starting to spy {}:{}", dt, url, branch);
@@ -25,14 +26,26 @@ pub fn spy_repo(
         Ok(mut parsed_url) => {
             if let Some(username) = username {
                 if let Err(e) = parsed_url.set_username(&username) {
-                    panic!("Error: {:?}", e)
+                    let dt = Utc::now();
+                    eprintln!(
+                        "goa [{}]: Error - {:?}",
+                        dt,
+                        e,
+                    );
+                    std::process::exit(1);
                 };
             }
 
             if let Some(token) = token {
                 let token_str: &str = &token[..];
                 if let Err(e) = parsed_url.set_password(Option::from(token_str)) {
-                    panic!("Error: {:?}", e)
+                    let dt = Utc::now();
+                    eprintln!(
+                        "goa [{}]: Error - {:?}",
+                        dt,
+                        e,
+                    );
+                    std::process::exit(1);
                 };
             }
 
@@ -49,11 +62,11 @@ pub fn spy_repo(
                 Ok(repo) => repo,
                 Err(_e) => {
                     let dt = Utc::now();
-                        eprintln!(
-                            "goa [{}]: Error - failed to clone, possible invalid URL or path.",
-                            dt
-                        );
-                        std::process::exit(1);
+                    eprintln!(
+                        "goa [{}]: Error - failed to clone, possible invalid URL or path.",
+                        dt
+                    );
+                    std::process::exit(1);
                 },
             };
             let repo_path = cloned_repo.workdir().unwrap();
@@ -83,6 +96,7 @@ pub fn spy_repo(
                 branch,
                 command,
                 delay,
+                verbosity,
             );
 
             // This is where the loop happens...
@@ -113,6 +127,7 @@ mod tests {
             Some(String::from("test")),
             Some(String::from("test")),
             Some(String::from("test")),
+            1,
         )
         .map_err(|e| e.kind());
 
