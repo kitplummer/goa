@@ -88,7 +88,19 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
             // TODO - think this needs to merge first, to get the update
             // from the .goa file.
             match git::do_merge(&local_repo, &repo.branch, commit) {
-                Ok(()) => do_task(repo),
+                Ok(()) => {
+                    match do_task(repo) {
+                        Ok(_output) => {
+                            let dt = Utc::now();
+                            println!("goa [{}]: Successfully ran command", dt);
+
+                        },
+                        Err(e) => {
+                            let dt = Utc::now();
+                            println!("goa [{}]: {}", dt, e);
+                        }
+                    }
+                },
                 Err(e) => {
                     let dt = Utc::now();
                     println!("goa [{}]: {}", dt, e);
@@ -104,7 +116,7 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
     Ok(())
 }
 
-fn do_task(repo: &mut Repo) {
+fn do_task(repo: &mut Repo) -> Result<String> {
     let command: Vec<&str> = repo.command.split(" ").collect();
     let dt = Utc::now();
     println!("goa [{}]: have a diff, processing the goa file", dt);
@@ -133,38 +145,50 @@ fn do_task(repo: &mut Repo) {
     let dt = Utc::now();
     println!("goa debug: path -> {}", &repo.local_path);
     println!("goa: [{}]: command status: {}", dt, output.status);
+    let stdout = String::from_utf8_lossy(&output.stdout);
     println!(
         "goa: [{}]: command stdout:\n{}",
         dt,
-        String::from_utf8_lossy(&output.stdout)
+        stdout,
     );
     println!(
         "goa: [{}]: command stderr:\n{}",
         dt,
         String::from_utf8_lossy(&output.stderr)
     );
+
+    Ok(stdout.to_string())
 }
 
 #[cfg(test)]
 mod tests {
-    // use super::*;
+    use super::*;
 
-    // #[test]
-    // fn test_spy_repo_with_bad_url() {
-    //     let repo = Repo::new(
-    //         String::from("file://."),
-    //         String::from("test"),
-    //         String::from("test"),
-    //         String::from("branch"),
-    //         120,
-    //     );
-    //     let res = repo.spy_for_changes();
+    #[test]
+    fn test_creation_of_repo() {
+        let repo = Repo::new(
+            String::from("file://."),
+            String::from("."),
+            String::from("develop"),
+            String::from("ls -l"),
+            120,
+        );
 
-    //     assert_eq!(Err(ErrorKind::InvalidData), res);
-    // }
+        assert_eq!("develop", repo.branch);
+    }
 
-    // #[test]
-    // fn test_contain_a_goa_file() {
-    //     assert!(true);
-    // }
+    #[test]
+    fn test_do_task() {
+        let mut repo = Repo::new(
+            String::from("file://."),
+            String::from("."),
+            String::from("develop"),
+            String::from("echo hello"),
+            120,
+        );
+
+        let res = do_task(&mut repo);
+        assert_eq!(String::from("hello\n"), res.unwrap());
+
+    }
 }
