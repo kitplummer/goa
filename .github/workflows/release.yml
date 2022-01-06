@@ -29,6 +29,8 @@ jobs:
         with:
           files: |
             target/release/goa_amd64
+            LICENSE
+            README.md
         env:
           GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
 
@@ -59,6 +61,8 @@ jobs:
         with:
           files: |
             target/release/goa_centos_7
+            LICENSE
+            README.md
         env:
           GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
 
@@ -83,7 +87,10 @@ jobs:
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: target/release/goa.exe
+          files: |
+            target/release/goa.exe
+            LICENSE
+            README.md
         env:
           GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
 
@@ -113,5 +120,7 @@ jobs:
         with:
           files: |
             target/release/goa_darwin
+            LICENSE
+            README.md
         env:
           GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
