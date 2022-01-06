@@ -15,8 +15,6 @@ use git2::Repository;
 
 use crate::git;
 
-// TODO: replace all panic!s with exits
-
 #[derive(Debug, Clone)]
 pub struct Repo {
     pub url: String,
@@ -25,6 +23,7 @@ pub struct Repo {
     pub branch: String,
     pub command: String,
     pub delay: u16,
+    pub verbosity: u8,
 }
 
 impl Repo {
@@ -34,6 +33,7 @@ impl Repo {
         branch: String,
         command: String,
         delay: u16,
+        verbosity: u8,
     ) -> Repo {
         // We'll initialize after the clone is successful.
         let status = String::from("cloned");
@@ -44,13 +44,14 @@ impl Repo {
             branch,
             command,
             delay,
+            verbosity,
         }
     }
 
     pub fn spy_for_changes(&self) {
         let dt = Utc::now();
         println!(
-            "goa [{}]: checking for changes every {} seconds",
+            "goa [{}]: checking for diffs every {} seconds",
             dt, self.delay
         );
 
@@ -73,16 +74,22 @@ impl Repo {
 
 pub fn do_process(repo: &mut Repo) -> Result<()> {
     // Get the real Repository
+    let dt = Utc::now();
     let local_repo = match Repository::open(&repo.local_path) {
         Ok(local_repo) => local_repo,
-        Err(e) => panic!("failed to open: {}", e),
+        Err(_e) => {
+            eprintln!("goa [{}]: failed to open the cloned repo", dt);
+            std::process::exit(1); 
+        }
     };
 
-    let dt = Utc::now();
-    println!(
-        "goa [{}]: checking for diffs at origin/{}!",
-        dt, repo.branch
-    );
+    if repo.verbosity > 1 {
+        println!(
+            "goa [{}]: checking for diffs at origin/{}!",
+            dt, repo.branch
+        );
+    }
+
     match git::is_diff(&local_repo, "origin", &repo.branch.to_string()) {
         Ok(commit) => {
             // TODO - think this needs to merge first, to get the update
@@ -90,26 +97,28 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
             match git::do_merge(&local_repo, &repo.branch, commit) {
                 Ok(()) => {
                     match do_task(repo) {
-                        Ok(_output) => {
+                        Ok(output) => {
                             let dt = Utc::now();
-                            println!("goa [{}]: Successfully ran command", dt);
+                            println!("goa [{}]: {}", dt, output);
 
                         },
                         Err(e) => {
                             let dt = Utc::now();
-                            println!("goa [{}]: {}", dt, e);
+                            eprintln!("goa [{}]: {}", dt, e);
                         }
                     }
                 },
                 Err(e) => {
                     let dt = Utc::now();
-                    println!("goa [{}]: {}", dt, e);
+                    eprintln!("goa [{}]: {}", dt, e);
                 }
             }
         }
         Err(e) => {
-            let dt = Utc::now();
-            println!("goa [{}]: {}", dt, e);
+            if repo.verbosity > 1 {
+                let dt = Utc::now();
+                println!("goa [{}]: {}", dt, e);
+            }
         }
     }
 
@@ -119,6 +128,7 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
 fn do_task(repo: &mut Repo) -> Result<String> {
     let command: Vec<&str> = repo.command.split(" ").collect();
     let dt = Utc::now();
+    
     println!("goa [{}]: have a diff, processing the goa file", dt);
 
     let mut command_command = "";
@@ -132,30 +142,35 @@ fn do_task(repo: &mut Repo) -> Result<String> {
         }
     }
 
-    println!(
-        "goa [{}]: running -> {} with args {:?}",
-        dt, command_command, command_args
-    );
+    if repo.verbosity > 1 {
+        println!(
+            "goa [{}]: running -> {} with args {:?}",
+            dt, command_command, command_args
+        );
+    }
+
     let output = Command::new(command_command)
         .current_dir(&repo.local_path)
         .args(command_args)
         .output()
         .expect("goa: Error -> failed to execute command");
 
+
     let dt = Utc::now();
-    println!("goa debug: path -> {}", &repo.local_path);
-    println!("goa: [{}]: command status: {}", dt, output.status);
+    if repo.verbosity > 2 {
+        println!("goa debug: path -> {}", &repo.local_path);
+        println!("goa: [{}]: command status: {}", dt, output.status);
+    }
+    
     let stdout = String::from_utf8_lossy(&output.stdout);
-    println!(
-        "goa: [{}]: command stdout:\n{}",
-        dt,
-        stdout,
-    );
-    println!(
-        "goa: [{}]: command stderr:\n{}",
-        dt,
-        String::from_utf8_lossy(&output.stderr)
-    );
+
+    if repo.verbosity > 1 {
+        println!(
+            "goa: [{}]: command stderr:\n{}",
+            dt,
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
 
     Ok(stdout.to_string())
 }
@@ -172,6 +187,7 @@ mod tests {
             String::from("develop"),
             String::from("ls -l"),
             120,
+            1,
         );
 
         assert_eq!("develop", repo.branch);
@@ -185,6 +201,7 @@ mod tests {
             String::from("develop"),
             String::from("echo hello"),
             120,
+            1,
         );
 
         let res = do_task(&mut repo);
