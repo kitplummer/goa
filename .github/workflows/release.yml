@@ -52,7 +52,7 @@ jobs:
         run: |
           sudo apt install musl-dev musl-tools
           cargo install cross
-          cross build --target=aarch64-unknown-linux-gnu --release && strip target/aarch64-unknown-linux-gnu/release/goa && mv target/aarch64-unknown-linux-gnu/release/goa target/aarch64-unknown-linux-gnu/release/goa_aarch64
+          cross build --target=aarch64-unknown-linux-gnu --release && mv target/aarch64-unknown-linux-gnu/release/goa target/aarch64-unknown-linux-gnu/release/goa_aarch64
 
       - name: Release
         uses: softprops/action-gh-release@v1
