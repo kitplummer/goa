@@ -2,7 +2,7 @@ use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
 pub enum Action {
-    /// Spy a remote git repo for changes, will execute defined script/command on first run
+    /// Spy a remote git repo for changes, will continuously execute defined script/command on a diff
     Spy {
         /// The remote git repo to watch for changes
         #[structopt()]

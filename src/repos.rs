@@ -70,6 +70,26 @@ impl Repo {
             thread::sleep(Duration::from_millis(10));
         }
     }
+
+
+}
+
+pub fn read_goa_file(goa_path: String) -> String {
+    if std::path::Path::new(&goa_path).exists() {
+        let dt = Utc::now();
+        println!(
+            "goa [{}]: reading command from .goa file at {}",
+            dt, goa_path
+        );
+        std::fs::read_to_string(goa_path).unwrap()
+    } else {
+        let dt = Utc::now();
+        println!(
+            "goa [{}]: no command given, nor a .goa file found in the repo - will proceed",
+            dt
+        );
+        String::from("echo 'no goa file yet'")
+    }
 }
 
 pub fn do_process(repo: &mut Repo) -> Result<()> {
@@ -96,6 +116,12 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
             // from the .goa file.
             match git::do_merge(&local_repo, &repo.branch, commit) {
                 Ok(()) => {
+                    if repo.command.is_empty() {
+                        repo.command = read_goa_file(format!("{}/.goa", repo.local_path));
+                        if repo.verbosity > 2 {
+                            println!("goa debug: .goa file command {}", repo.command);
+                        }
+                    }
                     match do_task(repo) {
                         Ok(output) => {
                             let dt = Utc::now();
@@ -104,13 +130,16 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
                         },
                         Err(e) => {
                             let dt = Utc::now();
-                            eprintln!("goa [{}]: {}", dt, e);
+                            eprintln!("goa [{}]: do_task error {}", dt, e);
                         }
                     }
+
+                    // Reset the .goa file command
+                    repo.command = String::from("");
                 },
                 Err(e) => {
                     let dt = Utc::now();
-                    eprintln!("goa [{}]: {}", dt, e);
+                    eprintln!("goa [{}]: do_merge error {}", dt, e);
                 }
             }
         }
