@@ -49,7 +49,9 @@ jobs:
           target: aarch64-unknown-linux-gnu
 
       - name: Build
-        run: cargo build --target=aarch64-unknown-linux-gnu --release && strip target/release/goa && mv target/release/goa target/release/goa_aarch64
+        run: |
+          cargo install cross
+          cross build --target=aarch64-unknown-linux-gnu --release && strip target/release/goa && mv target/release/goa target/release/goa_aarch64
 
       - name: Release
         uses: softprops/action-gh-release@v1
