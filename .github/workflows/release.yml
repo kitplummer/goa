@@ -50,6 +50,7 @@ jobs:
 
       - name: Build
         run: |
+          apt install musl-dev musl-tools
           cargo install cross
           cross build --target=aarch64-unknown-linux-gnu --release && strip target/release/goa && mv target/release/goa target/release/goa_aarch64
 
