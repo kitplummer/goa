@@ -53,7 +53,6 @@ pub fn spy_repo(
             let temp_dir = temp_dir();
             let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
             let tmp_dir_name = format!("{}", Uuid::new_v4());
-            let goa_path = format!("{}/goa_wd/{}/.goa", local_path, tmp_dir_name);
             local_path.push_str("/goa_wd/");
             local_path.push_str(&String::from(tmp_dir_name));
 
@@ -73,23 +72,14 @@ pub fn spy_repo(
             let command = match command {
                 Some(command) => command,
                 None => {
-                    if std::path::Path::new(&goa_path).exists() {
-                        let dt = Utc::now();
-                        println!(
-                            "goa [{}]: reading command from .goa file at {}",
-                            dt, goa_path
-                        );
-                        std::fs::read_to_string(goa_path).expect("Error - failed to read .goa file")
-                    } else {
-                        let dt = Utc::now();
-                        eprintln!(
-                            "goa [{}]: Error - no command given, nor a .goa file found in the rep",
-                            dt
-                        );
-                        std::process::exit(1);
-                    }
+                    String::from("")
                 }
             };
+
+            if verbosity > 2 {
+                println!("goa debug: command: {}", command);
+            }
+
             let repo = Repo::new(
                 String::from(parsed_url.as_str()),
                 String::from(repo_path.to_str().unwrap()),
