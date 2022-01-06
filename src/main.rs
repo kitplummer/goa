@@ -19,7 +19,8 @@ fn main() -> anyhow::Result<()> {
             token,
             command,
             verbosity,
-        } => spy::spy_repo(url, branch, delay, username, token, command, verbosity),
+            exec_on_start,
+        } => spy::spy_repo(url, branch, delay, username, token, command, verbosity, exec_on_start),
     }?;
 
     Ok(())

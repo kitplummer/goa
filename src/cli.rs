@@ -24,7 +24,10 @@ pub enum Action {
         command: Option<String>,
         /// The level of output to both standard out and error, max 3
         #[structopt(short, long, default_value = "1")]
-        verbosity: u8
+        verbosity: u8,
+        /// Execute the command, or .goa file, on start
+        #[structopt(short, long)]
+        exec_on_start: bool
     },
 }
 

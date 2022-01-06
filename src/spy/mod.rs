@@ -17,6 +17,7 @@ pub fn spy_repo(
     token: Option<String>,
     command: Option<String>,
     verbosity: u8,
+    exec_on_start: bool,
 ) -> Result<()> {
     let dt = Utc::now();
     println!("goa [{}]: starting to spy {}:{}", dt, url, branch);
@@ -87,6 +88,7 @@ pub fn spy_repo(
                 command,
                 delay,
                 verbosity,
+                exec_on_start,
             );
 
             // This is where the loop happens...
@@ -118,6 +120,7 @@ mod tests {
             Some(String::from("test")),
             Some(String::from("test")),
             1,
+            false,
         )
         .map_err(|e| e.kind());
 
