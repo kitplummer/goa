@@ -46,3 +46,5 @@ ARGS:
 ### Using a `.goa` File
 
 If no `-c`/`--command` is provided when starting `goa` - it will automatically look for a `.goa` file in the remote git repository, and execute the command within it.
+
+The `.goa` file can only run a single command (right now, maybe multilines in the future)
