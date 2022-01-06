@@ -24,6 +24,7 @@ pub struct Repo {
     pub command: String,
     pub delay: u16,
     pub verbosity: u8,
+    pub exec_on_start: bool,
 }
 
 impl Repo {
@@ -34,6 +35,7 @@ impl Repo {
         command: String,
         delay: u16,
         verbosity: u8,
+        exec_on_start: bool,
     ) -> Repo {
         // We'll initialize after the clone is successful.
         let status = String::from("cloned");
@@ -45,6 +47,7 @@ impl Repo {
             command,
             delay,
             verbosity,
+            exec_on_start,
         }
     }
 
@@ -59,19 +62,53 @@ impl Repo {
         let mut scheduler = Scheduler::new();
         let delay = self.delay as u32;
         let cloned_repo = Arc::new(Mutex::new(self.clone()));
-        // Add some tasks to it
+        if self.exec_on_start {
+            if self.command.is_empty() {
+                if self.verbosity > 2 {
+                    println!("goa debug: .goa file command {}", self.command);
+                }
+                
+                let mut mut_repo = cloned_repo.lock().unwrap();
+                mut_repo.command = read_goa_file(format!("{}/.goa", self.local_path));
+                match do_task(mut_repo.deref_mut()) {
+                    Ok(output) => {
+                        let dt = Utc::now();
+                        println!("goa [{}]: {}", dt, output);
+
+                    },
+                    Err(e) => {
+                        let dt = Utc::now();
+                        eprintln!("goa [{}]: do_task error {}", dt, e);
+                    }
+                }
+            } else {
+                let mut mut_repo = cloned_repo.lock().unwrap();
+                match do_task(mut_repo.deref_mut()) {
+                    Ok(output) => {
+                        let dt = Utc::now();
+                        println!("goa [{}]: {}", dt, output);
+
+                    },
+                    Err(e) => {
+                        let dt = Utc::now();
+                        eprintln!("goa [{}]: do_task error {}", dt, e);
+                    }
+                }
+            }
+        }
+
+        // Add the repo to scheduler
         scheduler.every(delay.seconds()).run(move || {
             let mut mut_repo = cloned_repo.lock().unwrap();
             do_process(mut_repo.deref_mut()).expect("Error: unable to attach to local repo.")
         });
+
         // Manually run the scheduler in an event loop
         loop {
             scheduler.run_pending();
             thread::sleep(Duration::from_millis(10));
         }
     }
-
-
 }
 
 pub fn read_goa_file(goa_path: String) -> String {
@@ -158,7 +195,7 @@ fn do_task(repo: &mut Repo) -> Result<String> {
     let command: Vec<&str> = repo.command.split(" ").collect();
     let dt = Utc::now();
     
-    println!("goa [{}]: have a diff, processing the goa file", dt);
+    println!("goa [{}]: processing the command", dt);
 
     let mut command_command = "";
     let mut command_args: Vec<&str> = [].to_vec();
@@ -217,6 +254,7 @@ mod tests {
             String::from("ls -l"),
             120,
             1,
+            false,
         );
 
         assert_eq!("develop", repo.branch);
@@ -231,6 +269,7 @@ mod tests {
             String::from("echo hello"),
             120,
             1,
+            false,
         );
 
         let res = do_task(&mut repo);
