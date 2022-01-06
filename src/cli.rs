@@ -22,6 +22,9 @@ pub enum Action {
         /// The command to run when a change is detected
         #[structopt(short, long)]
         command: Option<String>,
+        /// The level of output to both standard out and error, max 3
+        #[structopt(short, long, default_value = "1")]
+        verbosity: u8
     },
 }
 
