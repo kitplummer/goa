@@ -1,4 +1,8 @@
-on: [push]
+on: 
+  pull_request:
+    branches:
+      - main
+      - develop
 
 name: Code Coverage
 
