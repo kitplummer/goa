@@ -1,5 +1,4 @@
 use assert_cmd::prelude::*; // Add methods on commands
-                            //use predicates::prelude::*; // Used for writing assertions
 use std::process::Command; // Run programs
 
 #[test]
@@ -10,6 +9,62 @@ fn test_spy_repo_command_bad_url() -> Result<(), Box<dyn std::error::Error>> {
     cmd.assert()
         //.failure()
         .stderr(predicates::str::contains("goa error: invalid URL or path"));
+    Ok(())
+}
+
+#[test]
+fn test_spy_repo_command_missing_auth() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cmd = Command::cargo_bin("goa")?;
+    cmd.arg("spy");
+    cmd.arg("https://github.com/kitplummer/cliban");
+    cmd.assert()
+        //.failure()
+        .stderr(predicates::str::contains(
+            "goa error: failed to clone -> remote authentication required",
+        ));
+    Ok(())
+}
+
+#[test]
+fn test_spy_repo_command_bad_auth() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cmd = Command::cargo_bin("goa")?;
+    cmd.arg("spy");
+    cmd.arg("-u");
+    cmd.arg("fred");
+    cmd.arg("-t");
+    cmd.arg("flintstone");
+    cmd.arg("https://github.com/kitplummer/cliban");
+    cmd.assert().stderr(predicates::str::contains(
+        "goa error: failed to clone -> remote authentication required",
+    ));
+    Ok(())
+}
+
+#[test]
+fn test_spy_repo_command_bad_command() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cmd = Command::cargo_bin("goa")?;
+    cmd.arg("spy");
+    cmd.arg("https://github.com/kitplummer/goa_tester");
+    cmd.arg("-e");
+    cmd.arg("-c");
+    cmd.arg("/notarealcommand");
+    cmd.assert().stderr(predicates::str::contains(
+        "goa error: failed to execute command",
+    ));
+    Ok(())
+}
+
+#[test]
+fn test_spy_repo_command_bad_command_in_goa_file() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cmd = Command::cargo_bin("goa")?;
+    cmd.arg("spy");
+    cmd.arg("https://github.com/kitplummer/goa_tester_bad_command");
+    cmd.arg("-e");
+    cmd.arg("-v");
+    cmd.arg("3");
+    cmd.assert().stderr(predicates::str::contains(
+        "goa error: failed to execute command",
+    ));
     Ok(())
 }
 

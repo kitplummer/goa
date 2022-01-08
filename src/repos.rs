@@ -1,4 +1,4 @@
-use std::io::Result;
+use std::io::{Error, ErrorKind, Result};
 use std::ops::DerefMut;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
@@ -58,7 +58,10 @@ impl Repo {
                 println!("goa [{}]: cloned remote repo to {}", dt, self.local_path);
             }
             Err(e) => {
-                eprintln!("goa error: failed to clone, possible invalid URL or path - {}", e);
+                eprintln!(
+                    "goa error: failed to clone -> {}",
+                    e
+                );
                 std::process::exit(1);
             }
         };
@@ -145,9 +148,10 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
     let dt = Utc::now();
     let local_repo = match Repository::open(&repo.local_path) {
         Ok(local_repo) => local_repo,
-        Err(_e) => {
+        Err(e) => {
             eprintln!("goa [{}]: failed to open the cloned repo", dt);
-            std::process::exit(1);
+            //std::process::exit(1);
+            return Err(Error::new(ErrorKind::Other, e.to_string()));
         }
     };
 
@@ -277,7 +281,7 @@ mod repos_tests {
             String::from("develop"),
             String::from("echo hello"),
             120,
-            1,
+            3,
             false,
         );
 
@@ -306,10 +310,34 @@ mod repos_tests {
 
         assert_eq!(do_process(&mut repo)?, ());
         Ok(())
-
     }
 
-        #[test]
+    #[test]
+    fn test_do_process_no_clone() -> Result<()> {
+        let temp_dir = std::env::temp_dir();
+        let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
+        let tmp_dir_name = format!("{}", uuid::Uuid::new_v4());
+        local_path.push_str("/goa_wd/");
+        local_path.push_str(&String::from(tmp_dir_name));
+        let mut repo = Repo::new(
+            String::from("https://github.com/kitplummer/goa_tester"),
+            String::from(local_path),
+            String::from("main"),
+            String::from("echo hello"),
+            120,
+            2,
+            false,
+        );
+
+        repo.clone_repo();
+        repo.local_path = String::from("/blahdyblahblah");
+        let res = do_process(&mut repo).unwrap_err();
+        assert_eq!(res.kind(), ErrorKind::Other);
+
+        Ok(())
+    }
+
+    #[test]
     fn test_do_process_no_command() -> Result<()> {
         let temp_dir = std::env::temp_dir();
         let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
@@ -330,7 +358,6 @@ mod repos_tests {
 
         assert_eq!(do_process(&mut repo)?, ());
         Ok(())
-
     }
 
     #[test]
