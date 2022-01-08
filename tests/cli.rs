@@ -9,7 +9,7 @@ fn test_spy_repo_command_bad_url() -> Result<(), Box<dyn std::error::Error>> {
     cmd.arg("test");
     cmd.assert()
         //.failure()
-        .stderr(predicates::str::contains("Error: Invalid URL"));
+        .stderr(predicates::str::contains("goa error: invalid URL or path"));
     Ok(())
 }
 
