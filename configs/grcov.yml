@@ -2,4 +2,6 @@ ignore:
   - "tests/*rs"
   - "src/git.rs"
 output-type: lcov
+output-path: ./lcov.info
 branch: false
+path-to-lcov: ${{ github.workspace }}/coverage/lcov.info
