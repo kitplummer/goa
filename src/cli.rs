@@ -27,7 +27,7 @@ pub enum Action {
         verbosity: u8,
         /// Execute the command, or .goa file, on start
         #[structopt(short, long)]
-        exec_on_start: bool
+        exec_on_start: bool,
     },
 }
 

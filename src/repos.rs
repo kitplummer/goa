@@ -51,6 +51,19 @@ impl Repo {
         }
     }
 
+    pub fn clone_repo(&self) {
+        match Repository::clone(self.url.as_str(), &self.local_path) {
+            Ok(_repo) => {
+                let dt = Utc::now();
+                println!("goa [{}]: cloned remote repo to {}", dt, self.local_path);
+            }
+            Err(e) => {
+                eprintln!("goa error: failed to clone, possible invalid URL or path - {}", e);
+                std::process::exit(1);
+            }
+        };
+    }
+
     pub fn spy_for_changes(&self) {
         let dt = Utc::now();
         println!(
@@ -67,15 +80,14 @@ impl Repo {
                 if self.verbosity > 2 {
                     println!("goa debug: .goa file command {}", self.command);
                 }
-                
+
                 let mut mut_repo = cloned_repo.lock().unwrap();
                 mut_repo.command = read_goa_file(format!("{}/.goa", self.local_path));
                 match do_task(mut_repo.deref_mut()) {
                     Ok(output) => {
                         let dt = Utc::now();
                         println!("goa [{}]: {}", dt, output);
-
-                    },
+                    }
                     Err(e) => {
                         let dt = Utc::now();
                         eprintln!("goa [{}]: do_task error {}", dt, e);
@@ -87,8 +99,7 @@ impl Repo {
                     Ok(output) => {
                         let dt = Utc::now();
                         println!("goa [{}]: {}", dt, output);
-
-                    },
+                    }
                     Err(e) => {
                         let dt = Utc::now();
                         eprintln!("goa [{}]: do_task error {}", dt, e);
@@ -136,7 +147,7 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
         Ok(local_repo) => local_repo,
         Err(_e) => {
             eprintln!("goa [{}]: failed to open the cloned repo", dt);
-            std::process::exit(1); 
+            std::process::exit(1);
         }
     };
 
@@ -163,8 +174,7 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
                         Ok(output) => {
                             let dt = Utc::now();
                             println!("goa [{}]: {}", dt, output);
-
-                        },
+                        }
                         Err(e) => {
                             let dt = Utc::now();
                             eprintln!("goa [{}]: do_task error {}", dt, e);
@@ -173,7 +183,7 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
 
                     // Reset the .goa file command
                     repo.command = String::from("");
-                },
+                }
                 Err(e) => {
                     let dt = Utc::now();
                     eprintln!("goa [{}]: do_merge error {}", dt, e);
@@ -183,7 +193,7 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
         Err(e) => {
             if repo.verbosity > 1 {
                 let dt = Utc::now();
-                println!("goa [{}]: {}", dt, e);
+                eprintln!("goa [{}]: {}", dt, e);
             }
         }
     }
@@ -194,7 +204,7 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
 fn do_task(repo: &mut Repo) -> Result<String> {
     let command: Vec<&str> = repo.command.split(" ").collect();
     let dt = Utc::now();
-    
+
     println!("goa [{}]: processing the command", dt);
 
     let mut command_command = "";
@@ -219,20 +229,19 @@ fn do_task(repo: &mut Repo) -> Result<String> {
         .current_dir(&repo.local_path)
         .args(command_args)
         .output()
-        .expect("goa: Error -> failed to execute command");
-
+        .expect("goa error: failed to execute command");
 
     let dt = Utc::now();
     if repo.verbosity > 2 {
         println!("goa debug: path -> {}", &repo.local_path);
-        println!("goa: [{}]: command status: {}", dt, output.status);
+        println!("goa [{}]: command status: {}", dt, output.status);
     }
-    
+
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     if repo.verbosity > 1 {
         println!(
-            "goa: [{}]: command stderr:\n{}",
+            "goa [{}]: command stderr:\n{}",
             dt,
             String::from_utf8_lossy(&output.stderr)
         );
@@ -242,7 +251,7 @@ fn do_task(repo: &mut Repo) -> Result<String> {
 }
 
 #[cfg(test)]
-mod tests {
+mod repos_tests {
     use super::*;
 
     #[test]
@@ -251,7 +260,7 @@ mod tests {
             String::from("file://."),
             String::from("."),
             String::from("develop"),
-            String::from("ls -l"),
+            String::from(""),
             120,
             1,
             false,
@@ -274,6 +283,59 @@ mod tests {
 
         let res = do_task(&mut repo);
         assert_eq!(String::from("hello\n"), res.unwrap());
+    }
 
+    #[test]
+    fn test_do_process() -> Result<()> {
+        let temp_dir = std::env::temp_dir();
+        let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
+        let tmp_dir_name = format!("{}", uuid::Uuid::new_v4());
+        local_path.push_str("/goa_wd/");
+        local_path.push_str(&String::from(tmp_dir_name));
+        let mut repo = Repo::new(
+            String::from("https://github.com/kitplummer/goa_tester"),
+            String::from(local_path),
+            String::from("main"),
+            String::from("echo hello"),
+            120,
+            2,
+            false,
+        );
+
+        repo.clone_repo();
+
+        assert_eq!(do_process(&mut repo)?, ());
+        Ok(())
+
+    }
+
+        #[test]
+    fn test_do_process_no_command() -> Result<()> {
+        let temp_dir = std::env::temp_dir();
+        let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
+        let tmp_dir_name = format!("{}", uuid::Uuid::new_v4());
+        local_path.push_str("/goa_wd/");
+        local_path.push_str(&String::from(tmp_dir_name));
+        let mut repo = Repo::new(
+            String::from("https://github.com/kitplummer/goa_tester"),
+            String::from(local_path),
+            String::from("main"),
+            String::from(""),
+            120,
+            3,
+            false,
+        );
+
+        repo.clone_repo();
+
+        assert_eq!(do_process(&mut repo)?, ());
+        Ok(())
+
+    }
+
+    #[test]
+    fn test_no_goa_file() {
+        let res = read_goa_file(String::from("/blahdy/.goa"));
+        assert_eq!(res, String::from("echo 'no goa file yet'"));
     }
 }
