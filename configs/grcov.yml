@@ -4,4 +4,3 @@ ignore:
 output-type: lcov
 output-path: ./lcov.info
 branch: false
-path-to-lcov: ${{ github.workspace }}/coverage/lcov.info
