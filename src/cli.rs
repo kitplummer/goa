@@ -20,14 +20,14 @@ pub enum Action {
         #[structopt(short, long)]
         token: Option<String>,
         /// The command to run when a change is detected
-        #[structopt(short, long)]
-        command: Option<String>,
+        #[structopt(short, long, default_value = "")]
+        command: String,
         /// The level of output to both standard out and error, max 3
         #[structopt(short, long, default_value = "1")]
         verbosity: u8,
         /// Execute the command, or .goa file, on start
         #[structopt(short, long)]
-        exec_on_start: bool
+        exec_on_start: bool,
     },
 }
 

@@ -58,8 +58,8 @@ pub fn is_diff<'a>(
 
     let l = String::from(branch_name);
     let r = format!("{}/{}", remote_name, branch_name);
-    let tl = tree_to_treeish(&repo, Some(&l)).unwrap();
-    let tr = tree_to_treeish(&repo, Some(&r)).unwrap();
+    let tl = tree_to_treeish(repo, Some(&l)).unwrap();
+    let tr = tree_to_treeish(repo, Some(&r)).unwrap();
 
     let head = repo.head().unwrap();
     let oid = head.target().unwrap();
@@ -88,8 +88,8 @@ pub fn is_diff<'a>(
         let fetch_head = repo.find_reference("FETCH_HEAD")?;
         repo.reference_to_annotated_commit(&fetch_head)
     } else {
-        let msg = format!("no diffs, back to sleep.");
-        return Err(git2::Error::from_str(&msg));
+        let msg = "no diffs, back to sleep.";
+        Err(git2::Error::from_str(msg))
     }
 }
 
@@ -237,13 +237,13 @@ pub fn do_merge<'a>(
                 ))?;
             }
         };
-        let commit = find_last_commit(&repo).expect("Couldn't find last commit");
+        let commit = find_last_commit(repo).expect("Couldn't find last commit");
         display_commit(&commit);
     } else if analysis.0.is_normal() {
         // do a normal merge
         let head_commit = repo.reference_to_annotated_commit(&repo.head()?)?;
-        normal_merge(&repo, &head_commit, &fetch_commit)?;
-        let commit = find_last_commit(&repo).expect("Couldn't find last commit");
+        normal_merge(repo, &head_commit, &fetch_commit)?;
+        let commit = find_last_commit(repo).expect("Couldn't find last commit");
         display_commit(&commit);
     } else {
         println!("Error: Nothing to do?");

@@ -1,0 +1,8 @@
+ignore:
+  - "tests/*rs"
+  - "src/git.rs"
+  - "../*"
+  - "src/main.rs"
+output-type: lcov
+output-path: ./lcov.info
+branch: false
