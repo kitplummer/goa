@@ -52,7 +52,7 @@ pub fn spy_repo(
     let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
     let tmp_dir_name = format!("{}", Uuid::new_v4());
     local_path.push_str("/goa_wd/");
-    local_path.push_str(&String::from(tmp_dir_name));
+    local_path.push_str(&tmp_dir_name);
 
     // Preset the command from an Option
     let command = match command {
@@ -66,7 +66,7 @@ pub fn spy_repo(
     // Create the instance of the repo
     let repo = Repo::new(
         String::from(parsed_url.as_str()),
-        String::from(local_path),
+        local_path,
         branch,
         command,
         delay,

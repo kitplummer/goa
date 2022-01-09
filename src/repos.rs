@@ -206,7 +206,7 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
 }
 
 fn do_task(repo: &mut Repo) -> Result<String> {
-    let command: Vec<&str> = repo.command.split(" ").collect();
+    let command: Vec<&str> = repo.command.split(' ').collect();
     let dt = Utc::now();
 
     println!("goa [{}]: processing the command", dt);

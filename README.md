@@ -1,5 +1,5 @@
 # goa
-GitOps Agent - monitors remote repos against local/any change, and performs actions - given a periodicity that is defined as a time intervals
+GitOps Agent - continuously monitors a remote git repository against local/any change, and performs actions (e.g. executes a provided command) - given a periodicity that is defined as a time intervals
 
 ## Usage
 ### Sub Commands
@@ -52,7 +52,7 @@ The `.goa` file can only run a single command (right now, maybe multilines in th
 
 ## Contributing
 
-Nothing formal, but PRs are the means. Create an issue if you have a question, comment, or just because. :D
+Nothing formal, but PRs are the means. Create an [issue](https://github.com/kitplummer/goa/issues) if you have a question, comment, or just because. :D
 
 ## License
 
