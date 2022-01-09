@@ -18,8 +18,10 @@ use crate::git;
 #[derive(Debug, Clone)]
 pub struct Repo {
     pub url: String,
-    pub status: String,
-    pub local_path: String,
+    pub username: Option<String>,
+    pub token: Option<String>,
+    pub status: Option<String>,
+    pub local_path: Option<String>,
     pub branch: String,
     pub command: String,
     pub delay: u16,
@@ -28,9 +30,13 @@ pub struct Repo {
 }
 
 impl Repo {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         url: String,
-        local_path: String,
+        username: Option<String>,
+        token: Option<String>,
+        status: Option<String>,
+        local_path: Option<String>,
         branch: String,
         command: String,
         delay: u16,
@@ -38,9 +44,10 @@ impl Repo {
         exec_on_start: bool,
     ) -> Repo {
         // We'll initialize after the clone is successful.
-        let status = String::from("cloned");
         Repo {
             url,
+            username,
+            token,
             status,
             local_path,
             branch,
@@ -52,16 +59,17 @@ impl Repo {
     }
 
     pub fn clone_repo(&self) {
-        match Repository::clone(self.url.as_str(), &self.local_path) {
+        match Repository::clone(self.url.as_str(), self.local_path.as_ref().unwrap()) {
             Ok(_repo) => {
                 let dt = Utc::now();
-                println!("goa [{}]: cloned remote repo to {}", dt, self.local_path);
+                println!(
+                    "goa [{}]: cloned remote repo to {}",
+                    dt,
+                    self.local_path.as_ref().unwrap()
+                );
             }
             Err(e) => {
-                eprintln!(
-                    "goa error: failed to clone -> {}",
-                    e
-                );
+                eprintln!("goa error: failed to clone -> {}", e);
                 std::process::exit(1);
             }
         };
@@ -85,7 +93,8 @@ impl Repo {
                 }
 
                 let mut mut_repo = cloned_repo.lock().unwrap();
-                mut_repo.command = read_goa_file(format!("{}/.goa", self.local_path));
+                mut_repo.command =
+                    read_goa_file(format!("{}/.goa", self.local_path.as_ref().unwrap()));
                 match do_task(mut_repo.deref_mut()) {
                     Ok(output) => {
                         let dt = Utc::now();
@@ -146,7 +155,7 @@ pub fn read_goa_file(goa_path: String) -> String {
 pub fn do_process(repo: &mut Repo) -> Result<()> {
     // Get the real Repository
     let dt = Utc::now();
-    let local_repo = match Repository::open(&repo.local_path) {
+    let local_repo = match Repository::open(&repo.local_path.as_ref().unwrap()) {
         Ok(local_repo) => local_repo,
         Err(e) => {
             eprintln!("goa [{}]: failed to open the cloned repo", dt);
@@ -169,7 +178,8 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
             match git::do_merge(&local_repo, &repo.branch, commit) {
                 Ok(()) => {
                     if repo.command.is_empty() {
-                        repo.command = read_goa_file(format!("{}/.goa", repo.local_path));
+                        repo.command =
+                            read_goa_file(format!("{}/.goa", repo.local_path.as_ref().unwrap()));
                         if repo.verbosity > 2 {
                             println!("goa debug: .goa file command {}", repo.command);
                         }
@@ -230,14 +240,14 @@ fn do_task(repo: &mut Repo) -> Result<String> {
     }
 
     let output = Command::new(command_command)
-        .current_dir(&repo.local_path)
+        .current_dir(&repo.local_path.as_ref().unwrap())
         .args(command_args)
         .output()
         .expect("goa error: failed to execute command");
 
     let dt = Utc::now();
     if repo.verbosity > 2 {
-        println!("goa debug: path -> {}", &repo.local_path);
+        println!("goa debug: path -> {}", &repo.local_path.as_ref().unwrap());
         println!("goa [{}]: command status: {}", dt, output.status);
     }
 
@@ -262,7 +272,10 @@ mod repos_tests {
     fn test_creation_of_repo() {
         let repo = Repo::new(
             String::from("file://."),
-            String::from("."),
+            Some(String::from("")),
+            Some(String::from("")),
+            Some(String::from("")),
+            Some(String::from(".")),
             String::from("develop"),
             String::from(""),
             120,
@@ -277,7 +290,10 @@ mod repos_tests {
     fn test_do_task() {
         let mut repo = Repo::new(
             String::from("file://."),
-            String::from("."),
+            Some(String::from("")),
+            Some(String::from("")),
+            Some(String::from("")),
+            Some(String::from(".")),
             String::from("develop"),
             String::from("echo hello"),
             120,
@@ -298,7 +314,10 @@ mod repos_tests {
         local_path.push_str(&String::from(tmp_dir_name));
         let mut repo = Repo::new(
             String::from("https://github.com/kitplummer/goa_tester"),
-            String::from(local_path),
+            Some(String::from("")),
+            Some(String::from("")),
+            Some(String::from("")),
+            Some(String::from(local_path)),
             String::from("main"),
             String::from("echo hello"),
             120,
@@ -321,7 +340,10 @@ mod repos_tests {
         local_path.push_str(&String::from(tmp_dir_name));
         let mut repo = Repo::new(
             String::from("https://github.com/kitplummer/goa_tester"),
-            String::from(local_path),
+            Some(String::from("")),
+            Some(String::from("")),
+            Some(String::from("")),
+            Some(String::from(local_path)),
             String::from("main"),
             String::from("echo hello"),
             120,
@@ -330,7 +352,7 @@ mod repos_tests {
         );
 
         repo.clone_repo();
-        repo.local_path = String::from("/blahdyblahblah");
+        repo.local_path = Some(String::from("/blahdyblahblah"));
         let res = do_process(&mut repo).unwrap_err();
         assert_eq!(res.kind(), ErrorKind::Other);
 
@@ -346,7 +368,10 @@ mod repos_tests {
         local_path.push_str(&String::from(tmp_dir_name));
         let mut repo = Repo::new(
             String::from("https://github.com/kitplummer/goa_tester"),
-            String::from(local_path),
+            Some(String::from("")),
+            Some(String::from("")),
+            Some(String::from("")),
+            Some(String::from(local_path)),
             String::from("main"),
             String::from(""),
             120,
