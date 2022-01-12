@@ -239,29 +239,37 @@ fn do_task(repo: &mut Repo) -> Result<String> {
         );
     }
 
-    let output = Command::new(command_command)
+    let mut proc = Command::new(command_command)
         .current_dir(&repo.local_path.as_ref().unwrap())
         .args(command_args)
-        .output()
-        .expect("goa error: failed to execute command");
+        .spawn().ok().expect("Failed to execute.");
 
-    let dt = Utc::now();
-    if repo.verbosity > 2 {
-        println!("goa debug: path -> {}", &repo.local_path.as_ref().unwrap());
-        println!("goa [{}]: command status: {}", dt, output.status);
-    }
+    let output = match proc.wait() {
+        Ok(_status) => String::from("Finished"),
+        Err(_e)     => String::from("Failed")
+    };
+    // let output = match proc.wait_with_output() {
+    //     Ok(out) => String::from_utf8_lossy(&out.stdout),
+    //     Err(e) => String::from("goa error: {}", e)
+    // };
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    // let dt = Utc::now();
+    // if repo.verbosity > 2 {
+    //     println!("goa debug: path -> {}", &repo.local_path.as_ref().unwrap());
+    //     println!("goa [{}]: command status: {}", dt, output.status);
+    // }
 
-    if repo.verbosity > 1 {
-        println!(
-            "goa [{}]: command stderr:\n{}",
-            dt,
-            String::from_utf8_lossy(&output.stderr)
-        );
-    }
+    //let stdout = String::from_utf8_lossy(&output);
 
-    Ok(stdout.to_string())
+    // if repo.verbosity > 1 {
+    //     println!(
+    //         "goa [{}]: command stderr:\n{}",
+    //         dt,
+    //         String::from_utf8_lossy(&output.stderr)
+    //     );
+    // }
+
+    Ok(output)
 }
 
 #[cfg(test)]
