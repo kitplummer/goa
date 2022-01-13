@@ -187,7 +187,7 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
                     match do_task(repo) {
                         Ok(output) => {
                             let dt = Utc::now();
-                            println!("goa [{}]: {}", dt, output);
+                            println!("goa [{}]: stdout: {}", dt, output);
                         }
                         Err(e) => {
                             let dt = Utc::now();
@@ -221,55 +221,59 @@ fn do_task(repo: &mut Repo) -> Result<String> {
 
     println!("goa [{}]: processing the command", dt);
 
-    let mut command_command = "";
-    let mut command_args: Vec<&str> = [].to_vec();
-
-    for (pos, e) in command.iter().enumerate() {
-        if pos == 0 {
-            command_command = e;
-        } else {
-            command_args.push(e);
-        }
-    }
-
     if repo.verbosity > 1 {
         println!(
-            "goa [{}]: running -> {} with args {:?}",
-            dt, command_command, command_args
+            "goa [{}]: running -> {:?}",
+            dt, command
         );
     }
 
-    let mut proc = Command::new(command_command)
+    let output = if cfg!(target_os = "windows") {
+        Command::new("cmd /C")
+        .current_dir(&repo.local_path.as_ref().unwrap())
+        .args(command)
+        .output()
+        .expect("goa error: failed to execute command on Windows.")
+    } else {
+        let mut command_command = "";
+        let mut command_args: Vec<&str> = [].to_vec();
+
+        for (pos, e) in command.iter().enumerate() {
+            if pos == 0 {
+                command_command = e;
+            } else {
+                command_args.push(e);
+            }
+        }
+
+        Command::new(command_command)
         .current_dir(&repo.local_path.as_ref().unwrap())
         .args(command_args)
-        .spawn().ok().expect("Failed to execute.");
-
-    let output = match proc.wait() {
-        Ok(_status) => String::from("Finished"),
-        Err(_e)     => String::from("Failed")
+        .output()
+        .expect("goa error: failed to execute command")
     };
-    // let output = match proc.wait_with_output() {
-    //     Ok(out) => String::from_utf8_lossy(&out.stdout),
-    //     Err(e) => String::from("goa error: {}", e)
-    // };
+    let dt = Utc::now();
+    if repo.verbosity > 2 {
+        println!("goa debug: path -> {}", &repo.local_path.as_ref().unwrap());
+        println!("goa [{}]: command status: {}", dt, output.status);
+    }
 
-    // let dt = Utc::now();
-    // if repo.verbosity > 2 {
-    //     println!("goa debug: path -> {}", &repo.local_path.as_ref().unwrap());
-    //     println!("goa [{}]: command status: {}", dt, output.status);
-    // }
+    let stdout = String::from_utf8_lossy(&output.stdout);
 
-    //let stdout = String::from_utf8_lossy(&output);
+    if repo.verbosity > 1 {
+        println!(
+            "goa [{}]: command stderr:\n{}",
+            dt,
+            String::from_utf8_lossy(&output.stderr)
+        );
+        println!(
+            "goa [{}]: command stdout:\n{}",
+            dt,
+            String::from_utf8_lossy(&output.stdout)
+        );
+    }
 
-    // if repo.verbosity > 1 {
-    //     println!(
-    //         "goa [{}]: command stderr:\n{}",
-    //         dt,
-    //         String::from_utf8_lossy(&output.stderr)
-    //     );
-    // }
-
-    Ok(output)
+    Ok(stdout.to_string())
 }
 
 #[cfg(test)]
