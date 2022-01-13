@@ -266,11 +266,6 @@ fn do_task(repo: &mut Repo) -> Result<String> {
             dt,
             String::from_utf8_lossy(&output.stderr)
         );
-        println!(
-            "goa [{}]: command stdout:\n{}",
-            dt,
-            String::from_utf8_lossy(&output.stdout)
-        );
     }
 
     Ok(stdout.to_string())
