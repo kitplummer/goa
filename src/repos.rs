@@ -187,7 +187,7 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
                     match do_task(repo) {
                         Ok(output) => {
                             let dt = Utc::now();
-                            println!("goa [{}]: {}", dt, output);
+                            println!("goa [{}]: stdout: {}", dt, output);
                         }
                         Err(e) => {
                             let dt = Utc::now();
@@ -221,30 +221,38 @@ fn do_task(repo: &mut Repo) -> Result<String> {
 
     println!("goa [{}]: processing the command", dt);
 
-    let mut command_command = "";
-    let mut command_args: Vec<&str> = [].to_vec();
-
-    for (pos, e) in command.iter().enumerate() {
-        if pos == 0 {
-            command_command = e;
-        } else {
-            command_args.push(e);
-        }
-    }
-
     if repo.verbosity > 1 {
         println!(
-            "goa [{}]: running -> {} with args {:?}",
-            dt, command_command, command_args
+            "goa [{}]: running -> {:?}",
+            dt, command
         );
     }
 
-    let output = Command::new(command_command)
+    let output = if cfg!(target_os = "windows") {
+        Command::new("cmd")
+        .current_dir(&repo.local_path.as_ref().unwrap())
+        .arg("/C")
+        .args(command)
+        .output()
+        .expect("goa error: failed to execute command on Windows.")
+    } else {
+        let mut command_command = "";
+        let mut command_args: Vec<&str> = [].to_vec();
+
+        for (pos, e) in command.iter().enumerate() {
+            if pos == 0 {
+                command_command = e;
+            } else {
+                command_args.push(e);
+            }
+        }
+
+        Command::new(command_command)
         .current_dir(&repo.local_path.as_ref().unwrap())
         .args(command_args)
         .output()
-        .expect("goa error: failed to execute command");
-
+        .expect("goa error: failed to execute command")
+    };
     let dt = Utc::now();
     if repo.verbosity > 2 {
         println!("goa debug: path -> {}", &repo.local_path.as_ref().unwrap());

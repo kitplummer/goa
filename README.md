@@ -50,6 +50,18 @@ If no `-c`/`--command` is provided when starting `goa` - it will automatically l
 
 The `.goa` file can only run a single command (right now, maybe multilines in the future)
 
+### Windows
+
+Underneath goa is providing the `cmd /C` so you don't need to pass that in - just the command.
+
+`spy -c 'echo hello' -d 20 -v 3 https://github.com/kitplummer/goa_tester`
+
+And if you are using a `.goa` file to hold the command calling a batch like
+
+```
+.\hello.bat
+```
+
 ## Contributing
 
 Nothing formal, but PRs are the means. Create an [issue](https://github.com/kitplummer/goa/issues) if you have a question, comment, or just because. :D
