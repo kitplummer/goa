@@ -229,8 +229,9 @@ fn do_task(repo: &mut Repo) -> Result<String> {
     }
 
     let output = if cfg!(target_os = "windows") {
-        Command::new("cmd /C")
+        Command::new("cmd")
         .current_dir(&repo.local_path.as_ref().unwrap())
+        .arg("/C")
         .args(command)
         .output()
         .expect("goa error: failed to execute command on Windows.")
