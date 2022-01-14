@@ -90,35 +90,15 @@ impl Repo {
         let delay = self.delay as u32;
         let cloned_repo = Arc::new(Mutex::new(self.clone()));
         if self.exec_on_start {
-            if self.command.is_empty() {
-                if self.verbosity > 2 {
-                    println!("goa debug: .goa file command {}", self.command);
-                }
-
-                let mut mut_repo = cloned_repo.lock().unwrap();
-                mut_repo.command =
-                    read_goa_file(format!("{}/.goa", self.local_path.as_ref().unwrap()));
-                match do_task(mut_repo.deref_mut()) {
-                    Ok(output) => {
-                        let dt = Utc::now();
-                        println!("goa [{}]: {}", dt, output);
-                    }
-                    Err(e) => {
-                        let dt = Utc::now();
-                        eprintln!("goa [{}]: do_task error {}", dt, e);
-                    }
-                }
-            } else {
-                let mut mut_repo = cloned_repo.lock().unwrap();
-                match do_task(mut_repo.deref_mut()) {
-                    Ok(output) => {
-                        let dt = Utc::now();
-                        println!("goa [{}]: {}", dt, output);
-                    }
-                    Err(e) => {
-                        let dt = Utc::now();
-                        eprintln!("goa [{}]: do_task error {}", dt, e);
-                    }
+            let mut mut_repo = cloned_repo.lock().unwrap();
+            match do_process_once(mut_repo.deref_mut()) {
+                Ok(()) => {
+                    let dt = Utc::now();
+                    println!("goa [{}]: exec on startup complete", dt);
+                },
+                Err(_e) => {
+                    let dt = Utc::now();
+                    eprintln!("goa [{}]: error -> failed to exec on startup", dt);
                 }
             }
         }
@@ -153,6 +133,39 @@ pub fn read_goa_file(goa_path: String) -> String {
         );
         String::from("echo 'no goa file yet'")
     }
+}
+
+pub fn do_process_once(repo: &mut Repo) -> Result<()> {
+    let dt = Utc::now();
+    let local_repo = match Repository::open(&repo.local_path.as_ref().unwrap()) {
+        Ok(local_repo) => local_repo,
+        Err(e) => {
+            eprintln!("goa [{}]: failed to open the cloned repo", dt);
+            //std::process::exit(1);
+            return Err(Error::new(ErrorKind::Other, e.to_string()));
+        }
+    };
+
+    git::set_last_commit(&local_repo, &repo.branch.to_string());
+
+    if repo.command.is_empty() {
+        repo.command =
+            read_goa_file(format!("{}/.goa", repo.local_path.as_ref().unwrap()));
+        if repo.verbosity > 2 {
+            println!("goa debug: .goa file command {}", repo.command);
+        }
+    }
+    match do_task(repo) {
+        Ok(output) => {
+            let dt = Utc::now();
+            println!("goa [{}]: command stdout: {}", dt, output);
+        }
+        Err(e) => {
+            let dt = Utc::now();
+            eprintln!("goa [{}]: do_task error {}", dt, e);
+        }
+    }
+    Ok(())
 }
 
 pub fn do_process(repo: &mut Repo) -> Result<()> {
@@ -208,9 +221,10 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
             }
         }
         Err(e) => {
+            // There were no diffs, so we move right along
             if repo.verbosity > 1 {
                 let dt = Utc::now();
-                eprintln!("goa [{}]: error -> {}", dt, e);
+                println!("goa [{}]: {}", dt, e);
             }
         }
     }
