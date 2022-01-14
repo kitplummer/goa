@@ -17,6 +17,7 @@ use git2::{
     AutotagOption, Commit, Diff, DiffStatsFormat, FetchOptions, Object, ObjectType,
     RemoteCallbacks, Repository,
 };
+use std::env;
 use std::io::Write;
 use std::str;
 
@@ -139,6 +140,7 @@ fn display_commit(commit: &Commit) {
         tm,
         commit.message().unwrap_or("no commit message")
     );
+    env::set_var("GOA_LAST_COMMIT_ID", commit.id().to_string());
 }
 
 fn fast_forward(

@@ -16,3 +16,4 @@ structopt = "0.3"
 url = "2.2"
 uuid = { version = "0.8.2", features = ["serde", "v4"] }
 openssl-sys = { version = "0.9", features = ["vendored"] }
+run_script = { version = "0.9" }
