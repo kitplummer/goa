@@ -17,6 +17,7 @@ use git2::{
     AutotagOption, Commit, Diff, DiffStatsFormat, FetchOptions, Object, ObjectType,
     RemoteCallbacks, Repository,
 };
+use std::env;
 use std::io::Write;
 use std::str;
 
@@ -93,6 +94,14 @@ pub fn is_diff<'a>(
     }
 }
 
+pub fn set_last_commit(
+    repo: &git2::Repository,
+    branch_name: &str,
+) {
+    let commit = find_last_commit_on_branch(repo, branch_name);
+    display_commit(&commit.unwrap());
+}
+
 pub fn tree_to_treeish<'a>(
     repo: &'a Repository,
     arg: Option<&String>,
@@ -121,6 +130,26 @@ fn display_stats(diff: &Diff) -> Result<(), git2::Error> {
     Ok(())
 }
 
+fn find_last_commit_on_branch<'a>(repo: &'a Repository, branch_name: &str) -> Result<Commit<'a>, git2::Error> {
+    let (object, reference) = repo.revparse_ext(branch_name).expect("Object not found");
+    
+    repo.checkout_tree(&object, None)
+        .expect("Failed to checkout");
+
+    match reference {
+        // gref is an actual reference like branches or tags
+        Some(gref) => repo.set_head(gref.name().unwrap()),
+        // this is a commit, not a reference
+        None => repo.set_head_detached(object.id()),
+    }
+    .expect("Failed to set HEAD");
+
+    let obj = repo.head()?.resolve()?.peel(ObjectType::Commit)?;
+    obj.into_commit()
+        .map_err(|_| git2::Error::from_str("Couldn't find commit"))
+
+}
+
 fn find_last_commit(repo: &Repository) -> Result<Commit, git2::Error> {
     let obj = repo.head()?.resolve()?.peel(ObjectType::Commit)?;
     obj.into_commit()
@@ -139,6 +168,10 @@ fn display_commit(commit: &Commit) {
         tm,
         commit.message().unwrap_or("no commit message")
     );
+    env::set_var("GOA_LAST_COMMIT_ID", commit.id().to_string());
+    env::set_var("GOA_LAST_COMMIT_AUTHOR", commit.author().to_string());
+    env::set_var("GOA_LAST_COMMIT_MESSAGE", commit.author().to_string());
+    env::set_var("GOA_LAST_COMMIT_TIME", tm.to_string());
 }
 
 fn fast_forward(

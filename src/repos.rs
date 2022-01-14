@@ -1,9 +1,12 @@
 use std::io::{Error, ErrorKind, Result};
 use std::ops::DerefMut;
-use std::process::Command;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+
+// For processing the command
+use run_script::ScriptOptions;
 
 // For datetime/timestamp/log
 use chrono::Utc;
@@ -87,35 +90,15 @@ impl Repo {
         let delay = self.delay as u32;
         let cloned_repo = Arc::new(Mutex::new(self.clone()));
         if self.exec_on_start {
-            if self.command.is_empty() {
-                if self.verbosity > 2 {
-                    println!("goa debug: .goa file command {}", self.command);
-                }
-
-                let mut mut_repo = cloned_repo.lock().unwrap();
-                mut_repo.command =
-                    read_goa_file(format!("{}/.goa", self.local_path.as_ref().unwrap()));
-                match do_task(mut_repo.deref_mut()) {
-                    Ok(output) => {
-                        let dt = Utc::now();
-                        println!("goa [{}]: {}", dt, output);
-                    }
-                    Err(e) => {
-                        let dt = Utc::now();
-                        eprintln!("goa [{}]: do_task error {}", dt, e);
-                    }
-                }
-            } else {
-                let mut mut_repo = cloned_repo.lock().unwrap();
-                match do_task(mut_repo.deref_mut()) {
-                    Ok(output) => {
-                        let dt = Utc::now();
-                        println!("goa [{}]: {}", dt, output);
-                    }
-                    Err(e) => {
-                        let dt = Utc::now();
-                        eprintln!("goa [{}]: do_task error {}", dt, e);
-                    }
+            let mut mut_repo = cloned_repo.lock().unwrap();
+            match do_process_once(mut_repo.deref_mut()) {
+                Ok(()) => {
+                    let dt = Utc::now();
+                    println!("goa [{}]: exec on startup complete", dt);
+                },
+                Err(_e) => {
+                    let dt = Utc::now();
+                    eprintln!("goa [{}]: error -> failed to exec on startup", dt);
                 }
             }
         }
@@ -150,6 +133,39 @@ pub fn read_goa_file(goa_path: String) -> String {
         );
         String::from("echo 'no goa file yet'")
     }
+}
+
+pub fn do_process_once(repo: &mut Repo) -> Result<()> {
+    let dt = Utc::now();
+    let local_repo = match Repository::open(&repo.local_path.as_ref().unwrap()) {
+        Ok(local_repo) => local_repo,
+        Err(e) => {
+            eprintln!("goa [{}]: failed to open the cloned repo", dt);
+            //std::process::exit(1);
+            return Err(Error::new(ErrorKind::Other, e.to_string()));
+        }
+    };
+
+    git::set_last_commit(&local_repo, &repo.branch.to_string());
+
+    if repo.command.is_empty() {
+        repo.command =
+            read_goa_file(format!("{}/.goa", repo.local_path.as_ref().unwrap()));
+        if repo.verbosity > 2 {
+            println!("goa debug: .goa file command {}", repo.command);
+        }
+    }
+    match do_task(repo) {
+        Ok(output) => {
+            let dt = Utc::now();
+            println!("goa [{}]: command stdout: {}", dt, output);
+        }
+        Err(e) => {
+            let dt = Utc::now();
+            eprintln!("goa [{}]: do_task error {}", dt, e);
+        }
+    }
+    Ok(())
 }
 
 pub fn do_process(repo: &mut Repo) -> Result<()> {
@@ -187,7 +203,7 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
                     match do_task(repo) {
                         Ok(output) => {
                             let dt = Utc::now();
-                            println!("goa [{}]: stdout: {}", dt, output);
+                            println!("goa [{}]: command stdout: {}", dt, output);
                         }
                         Err(e) => {
                             let dt = Utc::now();
@@ -205,9 +221,10 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
             }
         }
         Err(e) => {
+            // There were no diffs, so we move right along
             if repo.verbosity > 1 {
                 let dt = Utc::now();
-                eprintln!("goa [{}]: {}", dt, e);
+                println!("goa [{}]: {}", dt, e);
             }
         }
     }
@@ -222,54 +239,32 @@ fn do_task(repo: &mut Repo) -> Result<String> {
     println!("goa [{}]: processing the command", dt);
 
     if repo.verbosity > 1 {
-        println!(
-            "goa [{}]: running -> {:?}",
-            dt, command
-        );
+        println!("goa [{}]: running -> {:?}", dt, command);
     }
+    let mut options = ScriptOptions::new();
+    options.working_directory = Some(PathBuf::from(&repo.local_path.as_ref().unwrap()));
 
-    let output = if cfg!(target_os = "windows") {
-        Command::new("cmd")
-        .current_dir(&repo.local_path.as_ref().unwrap())
-        .arg("/C")
-        .args(command)
-        .output()
-        .expect("goa error: failed to execute command on Windows.")
-    } else {
-        let mut command_command = "";
-        let mut command_args: Vec<&str> = [].to_vec();
+    let args = vec![];
 
-        for (pos, e) in command.iter().enumerate() {
-            if pos == 0 {
-                command_command = e;
-            } else {
-                command_args.push(e);
-            }
-        }
+    // run the script and get the script execution output
+    let (code, output, error) = run_script::run(&repo.command, &args, &options).unwrap();
 
-        Command::new(command_command)
-        .current_dir(&repo.local_path.as_ref().unwrap())
-        .args(command_args)
-        .output()
-        .expect("goa error: failed to execute command")
-    };
     let dt = Utc::now();
     if repo.verbosity > 2 {
         println!("goa debug: path -> {}", &repo.local_path.as_ref().unwrap());
-        println!("goa [{}]: command status: {}", dt, output.status);
     }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
 
     if repo.verbosity > 1 {
-        println!(
-            "goa [{}]: command stderr:\n{}",
-            dt,
-            String::from_utf8_lossy(&output.stderr)
-        );
+        println!("goa [{}]: command status: {}", dt, code);
+        println!("goa [{}]: command stderr:\n{}", dt, error);
     }
 
-    Ok(stdout.to_string())
+    if !error.is_empty() {
+        eprintln!("goa [{}]: error -> {}", dt, error);
+        std::process::exit(code); 
+    }
+
+    Ok(output)
 }
 
 #[cfg(test)]
