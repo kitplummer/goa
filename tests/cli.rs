@@ -49,7 +49,7 @@ fn test_spy_repo_command_bad_command() -> Result<(), Box<dyn std::error::Error>>
     cmd.arg("-c");
     cmd.arg("/notarealcommand");
     cmd.assert().stderr(predicates::str::contains(
-        "/notarealcommand: not found",
+        "/notarealcommand: no",
     ));
     Ok(())
 }
@@ -63,7 +63,7 @@ fn test_spy_repo_command_bad_command_in_goa_file() -> Result<(), Box<dyn std::er
     cmd.arg("-v");
     cmd.arg("3");
     cmd.assert().stderr(predicates::str::contains(
-        "/notarealcommand: not found",
+        "/notarealcommand: no",
     ));
     Ok(())
 }
