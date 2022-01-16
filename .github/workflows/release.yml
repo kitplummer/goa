@@ -23,7 +23,22 @@ jobs:
       - name: Build
         run: cargo build --all --release && strip target/release/goa && mv target/release/goa target/release/goa_amd64
 
-      - name: Release
+      - name: Build Changelog
+        id: github_release
+        uses: mikepenz/release-changelog-builder-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
+          body: ${{steps.github_release.outputs.changelog}}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release Build Target
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
@@ -34,7 +49,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
 
-  build-aarch64:
+  build-aarch64-linux:
     runs-on: ubuntu-latest
 
     steps:
@@ -75,13 +90,13 @@ jobs:
           toolchain: stable
           default: true
           override: true
-          target: arm-unknown-linux-gnuabihf
+          target: arm-unknown-linux-gnueabihf
 
       - name: Build
         run: |
           sudo apt install musl-dev musl-tools
           cargo install cross
-          cross build --target=arm-unknown-linux-gnuabihf --release && mv target/arm-unknown-linux-gnuabihf/release/goa target/arm-unknown-linux-gnuabihf/release/goa_arm
+          cross build --target=arm-unknown-linux-gnueabihf --release && mv target/arm-unknown-linux-gnueabihf/release/goa target/arm-unknown-linux-gnueabihf/release/goa_arm
 
       - name: Release
         uses: softprops/action-gh-release@v1
@@ -117,7 +132,7 @@ jobs:
       - name: Release
         uses: svenstaro/upload-release-action@v2
         with:
-          repo_token: ${{ secrets.REPO_ACCESS_TOKEN }}
+          repo_token: ${{ secrets.REPO_ACCESS_TOKEN}}
           file: target/release/goa_centos_7
           asset_name: goa_centos_7
           tag: ${{ github.ref }}
