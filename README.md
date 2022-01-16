@@ -2,7 +2,9 @@
 GitOps Agent - continuously monitors a remote git repository against local/any change, and performs actions (e.g. executes a provided command) - given a periodicity that is defined as a time intervals
 
 ## Usage
-### Sub Commands
+### Top-level
+
+#### Help (--help)
 ```
 A command-line GitOps utility agent
 
@@ -18,7 +20,10 @@ SUBCOMMANDS:
     spy     Spy a remote git repo for changes, will continuously execute defined script/command on a diff
 ```
 
-### Command-level 
+#### Version (--version)
+This does exactly what you'd expect.
+
+### Subcommand-level 
 
 #### Spy
 ```
@@ -50,9 +55,20 @@ If no `-c`/`--command` is provided when starting `goa` - it will automatically l
 
 The `.goa` file can only run a single command (right now, maybe multilines in the future)
 
+### Environment Variables
+
+When `goa` executes it provides details on the latest commit through environment variables:
+
+* `GOA_LAST_COMMIT_ID` -> the commit hash of the last commit on the spied upon branch
+* `GOA_LAST_COMMIT_TIME` -> the timestamp of the last commit
+* `GOA_LAST_COMMIT_AUTHOR` -> the author of the last commit
+* `GOA_LAST_COMMIT_MESSAGE` -> the message of the last commit
+
+If there is something specific you're looking for here, let me know via an [issue](https://github.com/kitplummer/goa/issues).
+
 ### Windows
 
-Underneath goa is providing the `cmd /C` so you don't need to pass that in - just the command.
+Underneath, goa is providing the `cmd /C` so you don't need to pass that in - just the command.
 
 `spy -c 'echo hello' -d 20 -v 3 https://github.com/kitplummer/goa_tester`
 
@@ -61,6 +77,17 @@ And if you are using a `.goa` file to hold the command calling a batch like
 ```
 .\hello.bat
 ```
+
+## Builds
+For each release we're currently building binaries for:
+* Generic x86_64 Linux (only tested on current Ubuntu)
+* Arm 32-bit for Linux (tested on Raspian on a RaspberryPi Zero)
+* Arm 64-bit for Linux (tested on Ubuntu on a RaspberryPi 4)
+* 64-bit for CentOS 7
+* Windows (only tested in a VM of Windows 11)
+* macOS (tested on current macOS)
+
+Need something else, let me know and i'll add the cross-compile to the GitHub Actions pipeline.
 
 ## Contributing
 
