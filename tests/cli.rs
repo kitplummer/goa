@@ -48,9 +48,8 @@ fn test_spy_repo_command_bad_command() -> Result<(), Box<dyn std::error::Error>>
     cmd.arg("-e");
     cmd.arg("-c");
     cmd.arg("/notarealcommand");
-    cmd.assert().stderr(predicates::str::contains(
-        "/notarealcommand:",
-    ));
+    cmd.assert()
+        .stderr(predicates::str::contains("/notarealcommand:"));
     cmd.assert().failure().code(127);
     Ok(())
 }
@@ -63,9 +62,8 @@ fn test_spy_repo_command_bad_command_in_goa_file() -> Result<(), Box<dyn std::er
     cmd.arg("-e");
     cmd.arg("-v");
     cmd.arg("3");
-    cmd.assert().stderr(predicates::str::contains(
-        "/notarealcommand:",
-    ));
+    cmd.assert()
+        .stderr(predicates::str::contains("/notarealcommand:"));
     cmd.assert().failure().code(127);
     Ok(())
 }
