@@ -39,13 +39,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Release Build Target
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
+        uses: svenstaro/upload-release-action@v2
         with:
-          files: |
-            target/release/goa_amd64
-            LICENSE
-            README.md
+          repo_token: ${{ secrets.REPO_ACCESS_TOKEN}}
+          file: target/release/goa_amd64
+          asset_name: goa_amd64
+          tag: ${{ github.ref }}
+          overwrite: true
+          body: "built for 64-bit Linux"
         env:
           GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
 
@@ -70,11 +71,14 @@ jobs:
           cross build --target=aarch64-unknown-linux-gnu --release && mv target/aarch64-unknown-linux-gnu/release/goa target/aarch64-unknown-linux-gnu/release/goa_aarch64
 
       - name: Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
+        uses: svenstaro/upload-release-action@v2
         with:
-          files: |
-            target/aarch64-unknown-linux-gnu/release/goa_aarch64
+          repo_token: ${{ secrets.REPO_ACCESS_TOKEN}}
+          file: target/release/goa_aarch64
+          asset_name: goa_aarch64
+          tag: ${{ github.ref }}
+          overwrite: true
+          body: "built for 64-bit ARM Linux"
         env:
           GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
 
@@ -99,11 +103,14 @@ jobs:
           cross build --target=arm-unknown-linux-gnueabihf --release && mv target/arm-unknown-linux-gnueabihf/release/goa target/arm-unknown-linux-gnueabihf/release/goa_arm
 
       - name: Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
+        uses: svenstaro/upload-release-action@v2
         with:
-          files: |
-            target/arm-unknown-linux-gnuabihf/release/goa_arm
+          repo_token: ${{ secrets.REPO_ACCESS_TOKEN}}
+          file: target/release/goa_arm
+          asset_name: goa_arm
+          tag: ${{ github.ref }}
+          overwrite: true
+          body: "built for ARM 32-bit Linux"
         env:
           GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
 
@@ -159,11 +166,14 @@ jobs:
         run: cargo build --all --release
 
       - name: Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
+        uses: svenstaro/upload-release-action@v2
         with:
-          files: |
-            target/release/goa.exe
+          repo_token: ${{ secrets.REPO_ACCESS_TOKEN}}
+          file: target/release/goa.exe
+          asset_name: goa.exe
+          tag: ${{ github.ref }}
+          overwrite: true
+          body: "built for Windows"
         env:
           GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
 
@@ -188,10 +198,13 @@ jobs:
         run: cargo build --all --release && strip target/release/goa && mv target/release/goa target/release/goa_darwin
 
       - name: Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
+        uses: svenstaro/upload-release-action@v2
         with:
-          files: |
-            target/release/goa_darwin
+          repo_token: ${{ secrets.REPO_ACCESS_TOKEN}}
+          file: target/release/goa_darwin
+          asset_name: goa_darwin
+          tag: ${{ github.ref }}
+          overwrite: true
+          body: "built for X86 macOS"
         env:
           GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
