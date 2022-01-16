@@ -95,7 +95,7 @@ impl Repo {
                 Ok(()) => {
                     let dt = Utc::now();
                     println!("goa [{}]: exec on startup complete", dt);
-                },
+                }
                 Err(_e) => {
                     let dt = Utc::now();
                     eprintln!("goa [{}]: error -> failed to exec on startup", dt);
@@ -149,8 +149,7 @@ pub fn do_process_once(repo: &mut Repo) -> Result<()> {
     git::set_last_commit(&local_repo, &repo.branch.to_string());
 
     if repo.command.is_empty() {
-        repo.command =
-            read_goa_file(format!("{}/.goa", repo.local_path.as_ref().unwrap()));
+        repo.command = read_goa_file(format!("{}/.goa", repo.local_path.as_ref().unwrap()));
         if repo.verbosity > 2 {
             println!("goa debug: .goa file command {}", repo.command);
         }
@@ -261,7 +260,7 @@ fn do_task(repo: &mut Repo) -> Result<String> {
 
     if !error.is_empty() {
         eprintln!("goa [{}]: error -> {}", dt, error);
-        std::process::exit(code); 
+        std::process::exit(code);
     }
 
     Ok(output)

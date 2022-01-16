@@ -94,10 +94,7 @@ pub fn is_diff<'a>(
     }
 }
 
-pub fn set_last_commit(
-    repo: &git2::Repository,
-    branch_name: &str,
-) {
+pub fn set_last_commit(repo: &git2::Repository, branch_name: &str) {
     let commit = find_last_commit_on_branch(repo, branch_name);
     display_commit(&commit.unwrap());
 }
@@ -130,9 +127,12 @@ fn display_stats(diff: &Diff) -> Result<(), git2::Error> {
     Ok(())
 }
 
-fn find_last_commit_on_branch<'a>(repo: &'a Repository, branch_name: &str) -> Result<Commit<'a>, git2::Error> {
+fn find_last_commit_on_branch<'a>(
+    repo: &'a Repository,
+    branch_name: &str,
+) -> Result<Commit<'a>, git2::Error> {
     let (object, reference) = repo.revparse_ext(branch_name).expect("Object not found");
-    
+
     repo.checkout_tree(&object, None)
         .expect("Failed to checkout");
 
@@ -147,7 +147,6 @@ fn find_last_commit_on_branch<'a>(repo: &'a Repository, branch_name: &str) -> Re
     let obj = repo.head()?.resolve()?.peel(ObjectType::Commit)?;
     obj.into_commit()
         .map_err(|_| git2::Error::from_str("Couldn't find commit"))
-
 }
 
 fn find_last_commit(repo: &Repository) -> Result<Commit, git2::Error> {
