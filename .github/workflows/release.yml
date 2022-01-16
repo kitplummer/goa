@@ -19,6 +19,11 @@ jobs:
           toolchain: stable
           default: true
           override: true
+      
+      - name: Get tag name
+        id: tag_name
+        run: |
+          echo ::set-output name=SOURCE_TAG::${GITHUB_REF#refs/tags/}
 
       - name: Build
         run: cargo build --all --release && strip target/release/goa && mv target/release/goa target/release/goa_amd64
@@ -32,7 +37,7 @@ jobs:
       - name: Release
         uses: svenstaro/upload-release-action@v2
         with:
-          release_name: ${{ github.ref }}
+          release_name: ${{ steps.tag_name.outputs.SOURCE_TAG }}
           repo_token: ${{ secrets.REPO_ACCESS_TOKEN}}
           file: target/release/goa_amd64
           asset_name: goa_amd64
@@ -66,7 +71,7 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.REPO_ACCESS_TOKEN}}
-          file: target/iaarch64-unknown-linux-gnu/release/goa_aarch64
+          file: target/aarch64-unknown-linux-gnu/release/goa_aarch64
           asset_name: goa_aarch64
           tag: ${{ github.ref }}
           overwrite: true
