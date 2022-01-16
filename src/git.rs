@@ -25,6 +25,7 @@ pub fn is_diff<'a>(
     repo: &'a git2::Repository,
     remote_name: &str,
     branch_name: &str,
+    verbosity: u8,
 ) -> Result<git2::AnnotatedCommit<'a>, git2::Error> {
     let mut cb = RemoteCallbacks::new();
     let mut remote = repo
@@ -32,12 +33,14 @@ pub fn is_diff<'a>(
         .or_else(|_| repo.remote_anonymous(remote_name))
         .unwrap();
     cb.sideband_progress(|data| {
-        let dt = Utc::now();
-        print!(
-            "goa [{}]: remote: {}",
-            dt,
-            std::str::from_utf8(data).unwrap()
-        );
+        if verbosity > 2 {
+            let dt = Utc::now();
+            print!(
+                "goa [{}]: remote: {}",
+                dt,
+                std::str::from_utf8(data).unwrap()
+            );
+        }
         std::io::stdout().flush().unwrap();
         true
     });
@@ -85,7 +88,9 @@ pub fn is_diff<'a>(
 
     if diff.deltas().len() > 0 {
         // TODO: make this a verbose thing
-        display_stats(&diff).expect("ERROR: unable to print diff stats");
+        if verbosity > 2 {
+            display_stats(&diff).expect("ERROR: unable to print diff stats");
+        }
         let fetch_head = repo.find_reference("FETCH_HEAD")?;
         repo.reference_to_annotated_commit(&fetch_head)
     } else {
@@ -94,12 +99,9 @@ pub fn is_diff<'a>(
     }
 }
 
-pub fn set_last_commit(
-    repo: &git2::Repository,
-    branch_name: &str,
-) {
+pub fn set_last_commit(repo: &git2::Repository, branch_name: &str, verbosity: u8) {
     let commit = find_last_commit_on_branch(repo, branch_name);
-    display_commit(&commit.unwrap());
+    commit_to_envs(&commit.unwrap(), verbosity);
 }
 
 pub fn tree_to_treeish<'a>(
@@ -113,7 +115,7 @@ pub fn tree_to_treeish<'a>(
     let obj = match repo.revparse_single(arg) {
         Ok(obj) => obj,
         Err(_) => {
-            println!("Error: branch not found");
+            eprintln!("Error: branch not found");
             std::process::exit(1);
         }
     };
@@ -130,9 +132,12 @@ fn display_stats(diff: &Diff) -> Result<(), git2::Error> {
     Ok(())
 }
 
-fn find_last_commit_on_branch<'a>(repo: &'a Repository, branch_name: &str) -> Result<Commit<'a>, git2::Error> {
+fn find_last_commit_on_branch<'a>(
+    repo: &'a Repository,
+    branch_name: &str,
+) -> Result<Commit<'a>, git2::Error> {
     let (object, reference) = repo.revparse_ext(branch_name).expect("Object not found");
-    
+
     repo.checkout_tree(&object, None)
         .expect("Failed to checkout");
 
@@ -147,7 +152,6 @@ fn find_last_commit_on_branch<'a>(repo: &'a Repository, branch_name: &str) -> Re
     let obj = repo.head()?.resolve()?.peel(ObjectType::Commit)?;
     obj.into_commit()
         .map_err(|_| git2::Error::from_str("Couldn't find commit"))
-
 }
 
 fn find_last_commit(repo: &Repository) -> Result<Commit, git2::Error> {
@@ -156,18 +160,20 @@ fn find_last_commit(repo: &Repository) -> Result<Commit, git2::Error> {
         .map_err(|_| git2::Error::from_str("Couldn't find commit"))
 }
 
-fn display_commit(commit: &Commit) {
+fn commit_to_envs(commit: &Commit, verbosity: u8) {
     let timestamp = commit.time().seconds();
     let tm = NaiveDateTime::from_timestamp(timestamp, 0);
-    let dt = Utc::now();
-    println!(
-        "goa [{}]: commit {}\nAuthor: {}\nDate:   {}\n\n    {}",
-        dt,
-        commit.id(),
-        commit.author(),
-        tm,
-        commit.message().unwrap_or("no commit message")
-    );
+    if verbosity > 0 {
+        let dt = Utc::now();
+        println!(
+            "goa [{}]: commit {}\nAuthor: {}\nDate:   {}\n\n    {}",
+            dt,
+            commit.id(),
+            commit.author(),
+            tm,
+            commit.message().unwrap_or("no commit message")
+        );
+    }
     env::set_var("GOA_LAST_COMMIT_ID", commit.id().to_string());
     env::set_var("GOA_LAST_COMMIT_AUTHOR", commit.author().to_string());
     env::set_var("GOA_LAST_COMMIT_MESSAGE", commit.author().to_string());
@@ -184,8 +190,6 @@ fn fast_forward(
         None => String::from_utf8_lossy(lb.name_bytes()).to_string(),
     };
     let msg = format!("Fast-Forward: Setting {} to id: {}", name, rc.id());
-    // TODO: make this a verbose things
-    // println!("{}", msg);
     lb.set_target(rc.id(), &msg)?;
     repo.set_head(&name)?;
     repo.checkout_head(Some(
@@ -211,7 +215,7 @@ fn normal_merge(
     let mut idx = repo.merge_trees(&ancestor, &local_tree, &remote_tree, None)?;
 
     if idx.has_conflicts() {
-        println!("Error: Merge conficts detected...");
+        eprintln!("Error: Merge conficts detected...");
         repo.checkout_index(Some(&mut idx), None)?;
         return Ok(());
     }
@@ -239,6 +243,7 @@ pub fn do_merge<'a>(
     repo: &'a Repository,
     remote_branch: &str,
     fetch_commit: git2::AnnotatedCommit<'a>,
+    verbosity: u8,
 ) -> Result<(), git2::Error> {
     // 1. do a merge analysis
     let analysis = repo.merge_analysis(&[&fetch_commit])?;
@@ -271,15 +276,15 @@ pub fn do_merge<'a>(
             }
         };
         let commit = find_last_commit(repo).expect("Couldn't find last commit");
-        display_commit(&commit);
+        commit_to_envs(&commit, verbosity);
     } else if analysis.0.is_normal() {
         // do a normal merge
         let head_commit = repo.reference_to_annotated_commit(&repo.head()?)?;
         normal_merge(repo, &head_commit, &fetch_commit)?;
         let commit = find_last_commit(repo).expect("Couldn't find last commit");
-        display_commit(&commit);
+        commit_to_envs(&commit, verbosity);
     } else {
-        println!("Error: Nothing to do?");
+        eprintln!("Error: Nothing to do?");
     }
     Ok(())
 }
