@@ -1,5 +1,5 @@
 # goa
-GitOps Agent - continuously monitors a remote git repository against local/any change, and performs actions (e.g. executes a provided command) - given a periodicity that is defined as a time intervals
+GitOps Agent - continuously monitors a remote git repository against local/any change, and performs actions (e.g. executes a provided command) - given a periodicity that is defined as a time intervals.
 
 ## Usage
 ### Top-level
@@ -39,15 +39,29 @@ FLAGS:
 
 OPTIONS:
     -b, --branch <branch>          The branch of the remote git repo to watch for changes [default: main]
-    -c, --command <command>        The command to run when a change is detected
+    -c, --command <command>        The command to run when a change is detected [default: ]
     -d, --delay <delay>            The time between checks in seconds, max 65535 [default: 120]
     -t, --token <token>            The access token for cloning and fetching of the remote repo
     -u, --username <username>      Username, owner of the token - required for private repos
-    -v, --verbosity <verbosity>    The level of output to both standard out and error, max 3 [default: 1]
+    -v, --verbosity <verbosity>    Adjust level of stdout, 0 no goa outpu , max 3 (debug) [default: 1]
 
 ARGS:
     <url>    The remote git repo to watch for changes
 ```
+
+#### Examples
+
+* `goa -c 'echo "hello from goa"' -e -d 20 https://github.com/kitplummer/goa_tester`
+
+This will echo out to the command line on startup, and then on any change to the main branch, looking for changes every 20 seconds.
+
+* `goa -d 120 -b develop -v 3 https://github.com/kitplummer/goa_tester`
+
+This will execute the contents of the `.goa` file in the repo on any diffs found in the develop branch, looking for changes every 120 seconds.  It will also log out debug-level details, which occur inside the processing loop (may get noisy).
+
+* `goa -c 'echo "change by ${GOA_LAST_COMMIT_AUTHOR} made to main branch" https://github.com/kitplummer/goa_tester`
+
+This will output the author of the last commit made to the main branch, looking for changes every 120 seconds.
 
 ### Using a `.goa` File
 
@@ -72,7 +86,7 @@ Underneath, goa is providing the `cmd /C` so you don't need to pass that in - ju
 
 `spy -c 'echo hello' -d 20 -v 3 https://github.com/kitplummer/goa_tester`
 
-And if you are using a `.goa` file to hold the command calling a batch like
+And if you are using a `.goa` file, reference the command calling a batch like
 
 ```
 .\hello.bat
