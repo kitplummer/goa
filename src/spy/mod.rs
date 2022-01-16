@@ -9,8 +9,10 @@ use uuid::Uuid;
 use crate::repos::Repo;
 
 pub fn spy_repo(mut repo: Repo) -> Result<()> {
-    let dt = Utc::now();
-    println!("goa [{}]: starting to spy {}:{}", dt, repo.url, repo.branch);
+    if repo.verbosity > 0 {
+        let dt = Utc::now();
+        println!("goa [{}]: starting to spy {}:{}", dt, repo.url, repo.branch);
+    }
 
     repo.url = match Url::parse(&repo.url) {
         Ok(mut parsed_url) => {

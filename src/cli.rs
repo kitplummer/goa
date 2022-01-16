@@ -22,7 +22,7 @@ pub enum Action {
         /// The command to run when a change is detected
         #[structopt(short, long, default_value = "")]
         command: String,
-        /// The level of output to both standard out and error, max 3
+        /// Adjust level of stdout, 0 no goa output , max 3 (debug)
         #[structopt(short, long, default_value = "1")]
         verbosity: u8,
         /// Execute the command, or .goa file, on start
