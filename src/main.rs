@@ -7,6 +7,11 @@ use crate::repos::Repo;
 use cli::{Action::*, CommandLineArgs};
 use structopt::StructOpt;
 
+#[macro_use]
+extern crate log;
+
+use env_logger::{Builder, Env, Target};
+
 fn main() -> anyhow::Result<()> {
     let CommandLineArgs { action } = CommandLineArgs::from_args();
 
@@ -33,6 +38,19 @@ fn main() -> anyhow::Result<()> {
                 verbosity,
                 exec_on_start,
             );
+
+            let log_level = match verbosity {
+                0 => "error",
+                1 => "info",
+                _ => "debug",
+            };
+
+            Builder::from_env(Env::default().default_filter_or(log_level))
+                .target(Target::Stdout)    
+                .init();
+
+            info!("starting");
+
             spy::spy_repo(repo)
         }
     }?;
