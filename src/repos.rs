@@ -8,9 +8,6 @@ use std::time::Duration;
 // For processing the command
 use run_script::ScriptOptions;
 
-// For datetime/timestamp/log
-use chrono::Utc;
-
 // Scheduler, and trait for .seconds(), .minutes(), etc.
 use clokwerk::{Scheduler, TimeUnits};
 
@@ -65,10 +62,8 @@ impl Repo {
         match Repository::clone(self.url.as_str(), self.local_path.as_ref().unwrap()) {
             Ok(_repo) => {
                 if self.verbosity > 0 {
-                    let dt = Utc::now();
-                    println!(
-                        "goa [{}]: cloned remote repo to {}",
-                        dt,
+                    info!(
+                        "cloned remote repo to {}",
                         self.local_path.as_ref().unwrap()
                     );
                 }
@@ -82,11 +77,7 @@ impl Repo {
 
     pub fn spy_for_changes(&self) {
         if self.verbosity > 0 {
-            let dt = Utc::now();
-            println!(
-                "goa [{}]: checking for diffs every {} seconds",
-                dt, self.delay
-            );
+            info!("checking for diffs every {} seconds", self.delay);
         }
 
         // Create a new scheduler
@@ -98,13 +89,11 @@ impl Repo {
             match do_process_once(mut_repo.deref_mut()) {
                 Ok(()) => {
                     if self.verbosity > 0 {
-                        let dt = Utc::now();
-                        println!("goa [{}]: exec on startup complete", dt);
+                        info!("exec on startup complete");
                     }
                 }
                 Err(_e) => {
-                    let dt = Utc::now();
-                    eprintln!("goa [{}]: error -> failed to exec on startup", dt);
+                    eprintln!("goa error: failed to exec on startup");
                 }
             }
         }
@@ -132,11 +121,10 @@ pub fn read_goa_file(goa_path: String) -> String {
 }
 
 pub fn do_process_once(repo: &mut Repo) -> Result<()> {
-    let dt = Utc::now();
     let local_repo = match Repository::open(&repo.local_path.as_ref().unwrap()) {
         Ok(local_repo) => local_repo,
         Err(e) => {
-            eprintln!("goa [{}]: failed to open the cloned repo", dt);
+            eprintln!("goa error: failed to open the cloned repo");
             //std::process::exit(1);
             return Err(Error::new(ErrorKind::Other, e.to_string()));
         }
@@ -147,21 +135,19 @@ pub fn do_process_once(repo: &mut Repo) -> Result<()> {
     if repo.command.is_empty() {
         repo.command = read_goa_file(format!("{}/.goa", repo.local_path.as_ref().unwrap()));
         if repo.verbosity > 2 {
-            println!("goa debug: .goa file command {}", repo.command);
+            debug!(".goa file command {}", repo.command);
         }
     }
     match do_task(repo) {
         Ok(output) => {
-            let dt = Utc::now();
             if repo.verbosity > 0 {
-                println!("goa [{}]: command stdout: {}", dt, output);
+                info!("command stdout: {}", output);
             } else {
                 println!("{output}");
             }
         }
         Err(e) => {
-            let dt = Utc::now();
-            eprintln!("goa [{}]: do_task error {}", dt, e);
+            eprintln!("goa error: do_task error {}", e);
         }
     }
     Ok(())
@@ -169,24 +155,25 @@ pub fn do_process_once(repo: &mut Repo) -> Result<()> {
 
 pub fn do_process(repo: &mut Repo) -> Result<()> {
     // Get the real Repository
-    let dt = Utc::now();
     let local_repo = match Repository::open(&repo.local_path.as_ref().unwrap()) {
         Ok(local_repo) => local_repo,
         Err(e) => {
-            eprintln!("goa [{}]: failed to open the cloned repo", dt);
+            eprintln!("goa error: failed to open the cloned repo");
             //std::process::exit(1);
             return Err(Error::new(ErrorKind::Other, e.to_string()));
         }
     };
 
     if repo.verbosity > 1 {
-        println!(
-            "goa [{}]: checking for diffs at origin/{}!",
-            dt, repo.branch
-        );
+        info!("checking for diffs at origin/{}!", repo.branch);
     }
 
-    match git::is_diff(&local_repo, "origin", &repo.branch.to_string(), repo.verbosity) {
+    match git::is_diff(
+        &local_repo,
+        "origin",
+        &repo.branch.to_string(),
+        repo.verbosity,
+    ) {
         Ok(commit) => {
             match git::do_merge(&local_repo, &repo.branch, commit, repo.verbosity) {
                 Ok(()) => {
@@ -194,21 +181,19 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
                         repo.command =
                             read_goa_file(format!("{}/.goa", repo.local_path.as_ref().unwrap()));
                         if repo.verbosity > 2 {
-                            println!("goa debug: .goa file command {}", repo.command);
+                            debug!(".goa file command {}", repo.command);
                         }
                     }
                     match do_task(repo) {
                         Ok(output) => {
-                            let dt = Utc::now();
                             if repo.verbosity > 0 {
-                                println!("goa [{}]: command stdout: {}", dt, output);
+                                info!("command stdout: {}", output);
                             } else {
                                 println!("{output}");
                             }
                         }
                         Err(e) => {
-                            let dt = Utc::now();
-                            eprintln!("goa [{}]: do_task error {}", dt, e);
+                            eprintln!("goa error: do_task error {}", e);
                         }
                     }
 
@@ -216,16 +201,14 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
                     repo.command = String::from("");
                 }
                 Err(e) => {
-                    let dt = Utc::now();
-                    eprintln!("goa [{}]: do_merge error {}", dt, e);
+                    eprintln!("goa error: do_merge error {}", e);
                 }
             }
         }
         Err(e) => {
             // There were no diffs, so we move right along
             if repo.verbosity > 1 {
-                let dt = Utc::now();
-                println!("goa [{}]: {}", dt, e);
+                debug!("{}", e);
             }
         }
     }
@@ -235,10 +218,9 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
 
 fn do_task(repo: &mut Repo) -> Result<String> {
     let command: Vec<&str> = repo.command.split(' ').collect();
-    let dt = Utc::now();
 
     if repo.verbosity > 1 {
-        println!("goa [{}]: running -> {:?}", dt, command);
+        info!("running -> {:?}", command);
     }
     let mut options = ScriptOptions::new();
     options.working_directory = Some(PathBuf::from(&repo.local_path.as_ref().unwrap()));
@@ -248,18 +230,17 @@ fn do_task(repo: &mut Repo) -> Result<String> {
     // run the script and get the script execution output
     let (code, output, error) = run_script::run(&repo.command, &args, &options).unwrap();
 
-    let dt = Utc::now();
     if repo.verbosity > 2 {
-        println!("goa debug: path -> {}", &repo.local_path.as_ref().unwrap());
+        debug!("path -> {}", &repo.local_path.as_ref().unwrap());
     }
 
     if repo.verbosity > 1 {
-        println!("goa [{}]: command status: {}", dt, code);
-        println!("goa [{}]: command stderr:\n{}", dt, error);
+        info!("command status: {}", code);
+        info!("command stderr:\n{}", error);
     }
 
     if !error.is_empty() {
-        eprintln!("goa [{}]: error -> {}", dt, error);
+        eprintln!("goa error: {}", error);
         std::process::exit(code);
     }
 
