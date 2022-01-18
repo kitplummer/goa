@@ -2,6 +2,8 @@
 GitOps Agent - continuously monitors a remote git repository against local/any change, and performs actions (e.g. executes a provided command) - given a periodicity that is defined as a time intervals.
 
 ## Usage
+
+Download a binary from the [releases](https://github.com/kitplummer/goa/releases) for your OS and CPU architecture.  Be sure to make the binary executable on the UNIX-based OSes (e.g. `chmod +x goa`).
 ### Top-level
 
 #### Help (--help)
@@ -68,6 +70,8 @@ This will output the author of the last commit made to the main branch, looking 
 If no `-c`/`--command` is provided when starting `goa` - it will automatically look for a `.goa` file in the remote git repository, and execute the command within it.
 
 The `.goa` file can only run a single command (right now, maybe multilines in the future)
+
+An example repo with a `.goa` file can be seen here: https://github.com/kitplummer/goa_tester
 
 ### Environment Variables
 
