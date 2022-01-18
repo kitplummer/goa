@@ -1,8 +1,6 @@
 use std::env::temp_dir;
 use std::io::Result;
 
-// For datetime/timestamp/log
-use chrono::Utc;
 use url::Url;
 use uuid::Uuid;
 
@@ -10,16 +8,14 @@ use crate::repos::Repo;
 
 pub fn spy_repo(mut repo: Repo) -> Result<()> {
     if repo.verbosity > 0 {
-        let dt = Utc::now();
-        println!("goa [{}]: starting to spy {}:{}", dt, repo.url, repo.branch);
+        info!("starting to spy {}:{}", repo.url, repo.branch);
     }
 
     repo.url = match Url::parse(&repo.url) {
         Ok(mut parsed_url) => {
             if let Some(ref username) = repo.username {
                 if let Err(e) = parsed_url.set_username(username) {
-                    let dt = Utc::now();
-                    eprintln!("goa [{}]: Error - {:?}", dt, e,);
+                    eprintln!("goa error: {:?}", e);
                     std::process::exit(1);
                 };
             }
@@ -27,15 +23,14 @@ pub fn spy_repo(mut repo: Repo) -> Result<()> {
             if let Some(ref token) = repo.token {
                 let token_str: &str = &token[..];
                 if let Err(e) = parsed_url.set_password(Option::from(token_str)) {
-                    let dt = Utc::now();
-                    eprintln!("goa [{}]: Error - {:?}", dt, e,);
+                    eprintln!("goa error: {:?}", e);
                     std::process::exit(1);
                 };
             }
             parsed_url.to_string()
         }
-        Err(_e) => {
-            eprintln!("goa error: invalid URL or path");
+        Err(e) => {
+            eprintln!("goa error: invalid URL or path, {}", e);
             std::process::exit(1);
         }
     };
