@@ -28,6 +28,9 @@ pub enum Action {
         /// Execute the command, or .goa file, on start
         #[structopt(short, long)]
         exec_on_start: bool,
+        /// The target path for the clone
+        #[structopt(short, long)]
+        target_path: Option<String>,
     },
 }
 
