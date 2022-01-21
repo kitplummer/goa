@@ -3,7 +3,7 @@ use git2::Repository;
 use std::env::temp_dir;
 use std::fs::File;
 use std::io::prelude::*;
-use std::process::{Command, Stdio}; // Run programs
+use std::process::Command; // Run programs
 
 use uuid::Uuid;
 
@@ -92,53 +92,53 @@ fn test_spy_repo_command_bad_branch() -> Result<(), Box<dyn std::error::Error>> 
     Ok(())
 }
 
-// #[test]
-// fn test_spy_repo_command_good_start() -> Result<(), Box<dyn std::error::Error>> {
-//     // Create directory
-//     let temp_dir = temp_dir();
-//     let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
-//     let tmp_dir_name = format!("{}/", Uuid::new_v4());
-//     local_path.push_str(&tmp_dir_name);
-//     let arg_path = local_path.clone();
-//     // Create .goa file
-//     let file_path = format!("{}.goa", local_path);
-//     // Git init and commit
-//     let repo = Repository::init(local_path).expect("Couldn't open repository");
-//     println!("REPO: {}", repo.path().display());
-//     let mut goa_file = File::create(file_path)?;
-//     goa_file.write_all(b"echo \"Hello")?;
-//     match add_and_commit(&repo, Path::new(".goa"), "test"){
-//         Ok(oid) => println!("OID: {}", oid),
-//         Err(e) => eprintln!("error: {}", e),
-//     }
+#[test]
+fn test_spy_repo_command_good_start() -> Result<(), Box<dyn std::error::Error>> {
+    // Create directory
+    let temp_dir = temp_dir();
+    let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
+    let tmp_dir_name = format!("{}/", Uuid::new_v4());
+    local_path.push_str(&tmp_dir_name);
+    let arg_path = local_path.clone();
+    // Create .goa file
+    let file_path = format!("{}.goa", local_path);
+    // Git init and commit
+    let repo = Repository::init(local_path).expect("Couldn't open repository");
+    println!("REPO: {}", repo.path().display());
+    let mut goa_file = File::create(file_path)?;
+    goa_file.write_all(b"echo \"Hello")?;
+    match add_and_commit(&repo, Path::new(".goa"), "test"){
+        Ok(oid) => println!("OID: {}", oid),
+        Err(e) => eprintln!("error: {}", e),
+    }
 
-//     // Run against provided repo
-//     let mut cmd = Command::cargo_bin("goa")?;
-//     cmd.arg("spy");
-//     cmd.arg("-b");
-//     cmd.arg("master");
-//     cmd.arg("-d");
-//     cmd.arg("10");
-//     cmd.arg("-x");
-//     cmd.arg(format!("file://{}", arg_path));
-//     cmd.spawn()?;
+    // Run against provided repo
+    let mut cmd = Command::cargo_bin("goa")?;
+    cmd.arg("spy");
+    cmd.arg("-b");
+    cmd.arg("master");
+    cmd.arg("-d");
+    cmd.arg("10");
+    cmd.arg("-x");
+    cmd.arg(format!("file://{}", arg_path));
+    cmd.spawn()?;
 
-//     //cmd.assert()
-//     //    .stdout(predicates::str::contains("starting to spy"));
-//     let ten_millis = std::time::Duration::from_millis(1000);
-//     std::thread::sleep(ten_millis);
+    //cmd.assert()
+    //    .stdout(predicates::str::contains("starting to spy"));
+    let ten_millis = std::time::Duration::from_millis(1000);
+    std::thread::sleep(ten_millis);
 
-//     goa_file.write_all(b", world!\"")?;
+    goa_file.write_all(b", world!\"")?;
 
-//     match add_and_commit(&repo, Path::new(".goa"), "test2"){
-//         Ok(oid) => println!("OID: {}", oid),
-//         Err(e) => eprintln!("error: {}", e),
-//     }
+    match add_and_commit(&repo, Path::new(".goa"), "test2"){
+        Ok(oid) => println!("OID: {}", oid),
+        Err(e) => eprintln!("error: {}", e),
+    }
 
-//     cmd.assert()
-//         .stderr(predicates::str::contains("goa"));
-//     Ok(())
-// }
+    // cmd.assert()
+    //     .stderr(predicates::str::contains("goa"));
+    Ok(())
+}
 
 #[test]
 fn test_spy_repo_command_catch_diff() -> Result<(), Box<dyn std::error::Error>> {
