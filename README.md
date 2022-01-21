@@ -1,5 +1,5 @@
 # goa
-GitOps Agent - continuously monitors a remote git repository against local/any change, and performs actions (e.g. executes a provided command) - given a periodicity that is defined as a time intervals.
+[GitOps](https://www.redhat.com/en/topics/devops/what-is-gitops) Agent - continuously monitors a remote git repository against local/any change, and performs actions (e.g. executes a provided command) - given a periodicity that is defined as a time intervals.
 
 ## Usage
 
