@@ -355,7 +355,8 @@ mod repos_tests {
     fn test_do_process_no_command() -> Result<()> {
         let temp_dir = std::env::temp_dir();
         let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
-        let tmp_dir_name = format!("{}", uuid::Uuid::new_v4());
+        debug!("local_path: {:?}", local_path);
+        let tmp_dir_name = format!("{}/", uuid::Uuid::new_v4());
         local_path.push_str(&String::from(tmp_dir_name));
         let mut repo = Repo::new(
             String::from("https://github.com/kitplummer/goa_tester"),
