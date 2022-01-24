@@ -35,15 +35,16 @@ pub fn spy_repo(mut repo: Repo) -> Result<()> {
         }
     };
 
-    // Get a temp directory to do work in
-    let temp_dir = temp_dir();
-    let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
-    let tmp_dir_name = format!("{}", Uuid::new_v4());
-    local_path.push_str("/goa_wd/");
-    local_path.push_str(&tmp_dir_name);
+    if repo.local_path == None {
+        // Get a temp directory to do work in
+        let temp_dir = temp_dir();
+        let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
+        let tmp_dir_name = format!("/{}/", Uuid::new_v4());
+        local_path.push_str(&tmp_dir_name);
 
-    // Set the local repo path in the repo struct
-    repo.local_path = Some(local_path);
+        // Set the local repo path in the repo struct
+        repo.local_path = Some(local_path);
+    }
 
     // Clone the repo and set the local path
     repo.clone_repo();

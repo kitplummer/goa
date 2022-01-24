@@ -25,18 +25,21 @@ fn main() -> anyhow::Result<()> {
             command,
             verbosity,
             exec_on_start,
+            exit_on_first_diff,
+            target_path,
         } => {
             let repo = Repo::new(
                 url,
                 username,
                 token,
                 Some(String::from("initialize")),
-                Some(String::from("initialize")),
+                target_path,
                 branch,
                 command,
                 delay,
                 verbosity,
                 exec_on_start,
+                exit_on_first_diff,
             );
 
             let log_level = match verbosity {
@@ -46,7 +49,7 @@ fn main() -> anyhow::Result<()> {
             };
 
             Builder::from_env(Env::default().default_filter_or(log_level))
-                .target(Target::Stdout)    
+                .target(Target::Stdout)
                 .init();
 
             info!("starting");
