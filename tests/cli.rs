@@ -97,7 +97,7 @@ fn test_spy_repo_command_good_start() -> Result<(), Box<dyn std::error::Error>> 
     // Create directory
     let temp_dir = temp_dir();
     let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
-    let tmp_dir_name = format!("{}/", Uuid::new_v4());
+    let tmp_dir_name = format!("/{}/", Uuid::new_v4());
     local_path.push_str(&tmp_dir_name);
     let arg_path = local_path.clone();
     // Create .goa file
