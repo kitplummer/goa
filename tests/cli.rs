@@ -99,12 +99,12 @@ fn test_spy_repo_command_good_start() -> Result<(), Box<dyn std::error::Error>> 
     let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
     let tmp_dir_name = format!("/{}/", Uuid::new_v4());
     local_path.push_str(&tmp_dir_name);
+    local_path = str::replace(&local_path, "//", "/");
     let arg_path = local_path.clone();
     // Create .goa file
     let file_path = format!("{}.goa", local_path);
     // Git init and commit
     let repo = Repository::init(local_path).expect("Couldn't open repository");
-    println!("REPO: {}", repo.path().display());
     let mut goa_file = File::create(file_path)?;
     goa_file.write_all(b"echo \"Hello")?;
     match add_and_commit(&repo, Path::new(".goa"), "test"){
@@ -120,6 +120,8 @@ fn test_spy_repo_command_good_start() -> Result<(), Box<dyn std::error::Error>> 
     cmd.arg("-d");
     cmd.arg("10");
     cmd.arg("-x");
+    cmd.arg("-T");
+    cmd.arg(format!("{}/testing", arg_path));
     cmd.arg(format!("file://{}", arg_path));
     cmd.spawn()?;
 
