@@ -1,5 +1,5 @@
 # goa
-GitOps Agent - continuously monitors a remote git repository against local/any change, and performs actions (e.g. executes a provided command) - given a periodicity that is defined as a time intervals.
+[GitOps](https://www.redhat.com/en/topics/devops/what-is-gitops) Agent - continuously monitors a remote git repository against local/any change, and performs actions (e.g. executes a provided command) - given a periodicity that is defined as a time intervals.
 
 ## Usage
 
@@ -35,17 +35,19 @@ USAGE:
     goa spy [FLAGS] [OPTIONS] <url>
 
 FLAGS:
-    -e, --exec-on-start    Execute the command, or .goa file, on start
-    -h, --help             Prints help information
-    -V, --version          Prints version information
+    -e, --exec-on-start         Execute the command, or .goa file, on start
+    -x, --exit-on-first-diff    Exit immediately after first diff spied
+    -h, --help                  Prints help information
+    -V, --version               Prints version information
 
 OPTIONS:
-    -b, --branch <branch>          The branch of the remote git repo to watch for changes [default: main]
-    -c, --command <command>        The command to run when a change is detected [default: ]
-    -d, --delay <delay>            The time between checks in seconds, max 65535 [default: 120]
-    -t, --token <token>            The access token for cloning and fetching of the remote repo
-    -u, --username <username>      Username, owner of the token - required for private repos
-    -v, --verbosity <verbosity>    Adjust level of stdout, 0 no goa outpu , max 3 (debug) [default: 1]
+    -b, --branch <branch>              The branch of the remote git repo to watch for changes [default: main]
+    -c, --command <command>            The command to run when a change is detected [default: ]
+    -d, --delay <delay>                The time between checks in seconds, max 65535 [default: 120]
+    -T, --target-path <target-path>    The target path for the clone
+    -t, --token <token>                The access token for cloning and fetching of the remote repo
+    -u, --username <username>          Username, owner of the token - required for private repos
+    -v, --verbosity <verbosity>        Adjust level of stdout, 0 no goa output , max 2 (debug) [default: 1]
 
 ARGS:
     <url>    The remote git repo to watch for changes
@@ -65,6 +67,13 @@ This will execute the contents of the `.goa` file in the repo on any diffs found
 
 This will output the author of the last commit made to the main branch, looking for changes every 120 seconds.
 
+* `goa -c 'echo "changed!" -x https://github.com/kitplummer/goa_tester`
+
+This will output "changed!" on stdout then exit after the first diff is identified on the "main" branch of the provided remote repo.
+
+* `goa -c 'echo "changed!" -T "/tmp/goa" -x https://github.com/kitplummer/goa_tester`
+
+Will do the same as above, but create the local clone at `/tmp/goa`.
 ### Using a `.goa` File
 
 If no `-c`/`--command` is provided when starting `goa` - it will automatically look for a `.goa` file in the remote git repository, and execute the command within it.

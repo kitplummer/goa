@@ -27,6 +27,7 @@ pub struct Repo {
     pub delay: u16,
     pub verbosity: u8,
     pub exec_on_start: bool,
+    pub exit_on_first_diff: bool,
 }
 
 impl Repo {
@@ -42,6 +43,7 @@ impl Repo {
         delay: u16,
         verbosity: u8,
         exec_on_start: bool,
+        exit_on_first_diff: bool,
     ) -> Repo {
         // We'll initialize after the clone is successful.
         Repo {
@@ -55,11 +57,14 @@ impl Repo {
             delay,
             verbosity,
             exec_on_start,
+            exit_on_first_diff,
         }
     }
 
     pub fn clone_repo(&self) {
-        match Repository::clone(self.url.as_str(), self.local_path.as_ref().unwrap()) {
+        // Some OS-specific non-sense with trailing / in paths
+        let local_target = str::replace(self.local_path.as_ref().unwrap(), "//", "/");
+        match Repository::clone(self.url.as_str(), local_target) {
             Ok(_repo) => {
                 if self.verbosity > 0 {
                     info!(
@@ -191,6 +196,10 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
                             } else {
                                 println!("{output}");
                             }
+
+                            if repo.exit_on_first_diff {
+                                std::process::exit(0);
+                            }
                         }
                         Err(e) => {
                             eprintln!("goa error: do_task error {}", e);
@@ -264,6 +273,7 @@ mod repos_tests {
             120,
             1,
             false,
+            false,
         );
 
         assert_eq!("develop", repo.branch);
@@ -282,6 +292,7 @@ mod repos_tests {
             120,
             3,
             false,
+            false,
         );
 
         let res = do_task(&mut repo);
@@ -292,8 +303,7 @@ mod repos_tests {
     fn test_do_process() -> Result<()> {
         let temp_dir = std::env::temp_dir();
         let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
-        let tmp_dir_name = format!("{}", uuid::Uuid::new_v4());
-        local_path.push_str("/goa_wd/");
+        let tmp_dir_name = format!("/{}/", uuid::Uuid::new_v4());
         local_path.push_str(&String::from(tmp_dir_name));
         let mut repo = Repo::new(
             String::from("https://github.com/kitplummer/goa_tester"),
@@ -305,6 +315,7 @@ mod repos_tests {
             String::from("echo hello"),
             120,
             2,
+            false,
             false,
         );
 
@@ -318,8 +329,7 @@ mod repos_tests {
     fn test_do_process_no_clone() -> Result<()> {
         let temp_dir = std::env::temp_dir();
         let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
-        let tmp_dir_name = format!("{}", uuid::Uuid::new_v4());
-        local_path.push_str("/goa_wd/");
+        let tmp_dir_name = format!("/{}/", uuid::Uuid::new_v4());
         local_path.push_str(&String::from(tmp_dir_name));
         let mut repo = Repo::new(
             String::from("https://github.com/kitplummer/goa_tester"),
@@ -331,6 +341,7 @@ mod repos_tests {
             String::from("echo hello"),
             120,
             2,
+            false,
             false,
         );
 
@@ -346,9 +357,9 @@ mod repos_tests {
     fn test_do_process_no_command() -> Result<()> {
         let temp_dir = std::env::temp_dir();
         let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
-        let tmp_dir_name = format!("{}", uuid::Uuid::new_v4());
-        local_path.push_str("/goa_wd/");
+        let tmp_dir_name = format!("/{}/", uuid::Uuid::new_v4());
         local_path.push_str(&String::from(tmp_dir_name));
+        println!("local_path: {:?}", local_path);
         let mut repo = Repo::new(
             String::from("https://github.com/kitplummer/goa_tester"),
             Some(String::from("")),
@@ -359,6 +370,7 @@ mod repos_tests {
             String::from(""),
             120,
             3,
+            false,
             false,
         );
 
