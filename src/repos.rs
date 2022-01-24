@@ -62,7 +62,9 @@ impl Repo {
     }
 
     pub fn clone_repo(&self) {
-        match Repository::clone(self.url.as_str(), self.local_path.as_ref().unwrap()) {
+        // Some OS-specific non-sense with trailing / in paths
+        let local_target = str::replace(self.local_path.as_ref().unwrap(), "//", "/");
+        match Repository::clone(self.url.as_str(), local_target) {
             Ok(_repo) => {
                 if self.verbosity > 0 {
                     info!(
@@ -301,7 +303,7 @@ mod repos_tests {
     fn test_do_process() -> Result<()> {
         let temp_dir = std::env::temp_dir();
         let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
-        let tmp_dir_name = format!("{}", uuid::Uuid::new_v4());
+        let tmp_dir_name = format!("/{}/", uuid::Uuid::new_v4());
         local_path.push_str(&String::from(tmp_dir_name));
         let mut repo = Repo::new(
             String::from("https://github.com/kitplummer/goa_tester"),
@@ -327,7 +329,7 @@ mod repos_tests {
     fn test_do_process_no_clone() -> Result<()> {
         let temp_dir = std::env::temp_dir();
         let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
-        let tmp_dir_name = format!("{}", uuid::Uuid::new_v4());
+        let tmp_dir_name = format!("/{}/", uuid::Uuid::new_v4());
         local_path.push_str(&String::from(tmp_dir_name));
         let mut repo = Repo::new(
             String::from("https://github.com/kitplummer/goa_tester"),
@@ -355,9 +357,9 @@ mod repos_tests {
     fn test_do_process_no_command() -> Result<()> {
         let temp_dir = std::env::temp_dir();
         let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
-        debug!("local_path: {:?}", local_path);
-        let tmp_dir_name = format!("{}/", uuid::Uuid::new_v4());
+        let tmp_dir_name = format!("/{}/", uuid::Uuid::new_v4());
         local_path.push_str(&String::from(tmp_dir_name));
+        println!("local_path: {:?}", local_path);
         let mut repo = Repo::new(
             String::from("https://github.com/kitplummer/goa_tester"),
             Some(String::from("")),
