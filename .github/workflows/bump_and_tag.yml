@@ -1,4 +1,5 @@
 name: Bump version and tag
+permissions: read-all
 on:
   push:
     branches:
