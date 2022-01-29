@@ -1,5 +1,7 @@
 name: Release
 
+permissions: read-all
+
 on:
   push:
     tags:
@@ -11,10 +13,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v1
+        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
 
       - name: Install latest rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af
         with:
           toolchain: stable
           default: true
@@ -30,12 +32,12 @@ jobs:
 
       - name: Build Changelog
         id: github_release
-        uses: mikepenz/release-changelog-builder-action@v1
+        uses: mikepenz/release-changelog-builder-action@bfe1f0e8256bb02ae777b4968677761223b0a82f
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Release
-        uses: svenstaro/upload-release-action@v2
+        uses: svenstaro/upload-release-action@483c1e56f95e88835747b1c7c60581215016cbf2
         with:
           release_name: ${{ steps.tag_name.outputs.SOURCE_TAG }}
           repo_token: ${{ secrets.REPO_ACCESS_TOKEN}}
@@ -52,9 +54,9 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v1
+        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
       - name: Install latest rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af
         with:
           toolchain: stable
           default: true
@@ -68,7 +70,7 @@ jobs:
           cross build --target=aarch64-unknown-linux-gnu --release && mv target/aarch64-unknown-linux-gnu/release/goa target/aarch64-unknown-linux-gnu/release/goa_aarch64
 
       - name: Release
-        uses: svenstaro/upload-release-action@v2
+        uses: svenstaro/upload-release-action@483c1e56f95e88835747b1c7c60581215016cbf2
         with:
           repo_token: ${{ secrets.REPO_ACCESS_TOKEN}}
           file: target/aarch64-unknown-linux-gnu/release/goa_aarch64
@@ -83,9 +85,9 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v1
+        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
       - name: Install latest rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af
         with:
           toolchain: stable
           default: true
@@ -99,7 +101,7 @@ jobs:
           cross build --target=arm-unknown-linux-gnueabihf --release && mv target/arm-unknown-linux-gnueabihf/release/goa target/arm-unknown-linux-gnueabihf/release/goa_arm
 
       - name: Release
-        uses: svenstaro/upload-release-action@v2
+        uses: svenstaro/upload-release-action@483c1e56f95e88835747b1c7c60581215016cbf2
         with:
           repo_token: ${{ secrets.REPO_ACCESS_TOKEN}}
           file: target/arm-unknown-linux-gnueabihf/release/goa_arm
@@ -116,10 +118,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v1
+        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
 
       - name: Install latest rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af
         with:
           toolchain: stable
           default: true
@@ -132,7 +134,7 @@ jobs:
           cargo build --all --release && strip target/release/goa && mv target/release/goa target/release/goa_centos_7
 
       - name: Release
-        uses: svenstaro/upload-release-action@v2
+        uses: svenstaro/upload-release-action@483c1e56f95e88835747b1c7c60581215016cbf2
         with:
           repo_token: ${{ secrets.REPO_ACCESS_TOKEN}}
           file: target/release/goa_centos_7
@@ -147,10 +149,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v1
+        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
 
       - name: Install latest rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af
         with:
           toolchain: stable
           default: true
@@ -160,7 +162,7 @@ jobs:
         run: cargo build --all --release
 
       - name: Release
-        uses: svenstaro/upload-release-action@v2
+        uses: svenstaro/upload-release-action@483c1e56f95e88835747b1c7c60581215016cbf2
         with:
           repo_token: ${{ secrets.REPO_ACCESS_TOKEN}}
           file: target/release/goa.exe
@@ -175,12 +177,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v1
+        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
         with:
           ssh-key: "${{ secrets.COMMIT_KEY }}"
 
       - name: Install latest rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af
         with:
           toolchain: stable
           target: x86_64-apple-darwin
@@ -191,7 +193,7 @@ jobs:
         run: cargo build --all --release && strip target/release/goa && mv target/release/goa target/release/goa_darwin
 
       - name: Release
-        uses: svenstaro/upload-release-action@v2
+        uses: svenstaro/upload-release-action@483c1e56f95e88835747b1c7c60581215016cbf2
         with:
           repo_token: ${{ secrets.REPO_ACCESS_TOKEN}}
           file: target/release/goa_darwin

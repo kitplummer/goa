@@ -105,6 +105,16 @@ And if you are using a `.goa` file, reference the command calling a batch like
 .\hello.bat
 ```
 
+### Running as a container
+
+Note: public release of the container to the GitHub registry is a work-in-progress - we'll update the doc here when the container is pushed within the release process.  For now you can build the container then run it.
+
+```
+docker run -it --rm kitplummer/goa spy --help
+```
+
+Running from a container, depending on the permissions of the underlying container system may cause issues with the abilty to execute commands from goa itself.  Also, it might make more sense for goa to be integrated into a container that includes to the commands to be executed.
+
 ## Builds
 For each release we're currently building binaries for:
 * Generic x86_64 Linux (only tested on current Ubuntu)

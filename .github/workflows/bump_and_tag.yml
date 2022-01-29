@@ -1,4 +1,5 @@
 name: Bump version and tag
+permissions: read-all
 on:
   push:
     branches:
@@ -7,13 +8,13 @@ jobs:
   tag:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
       with:
         fetch-depth: '0'
         ssh-key: "${{ secrets.COMMIT_KEY }}"
 
     - name: Bump version and push tag
-      uses: anothrNick/github-tag-action@1.36.0
+      uses: anothrNick/github-tag-action@ce4b5ffa38e072fa7a901e417253c438fcc2ccce
       env:
         GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
         WITH_V: true
