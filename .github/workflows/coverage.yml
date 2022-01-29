@@ -4,6 +4,8 @@ on:
       - main
       - develop
 
+permissions: read-all
+
 name: Code Coverage
 
 jobs:
