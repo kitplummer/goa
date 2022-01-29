@@ -4,5 +4,5 @@ ignore:
   - "../*"
   - "src/main.rs"
 output-type: lcov
-output-path: ./lcov.info
+output-file: ./lcov.info
 branch: false
