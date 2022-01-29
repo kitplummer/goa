@@ -7,7 +7,7 @@ jobs:
   tag:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
       with:
         fetch-depth: '0'
         ssh-key: "${{ secrets.COMMIT_KEY }}"
