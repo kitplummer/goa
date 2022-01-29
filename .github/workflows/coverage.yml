@@ -25,7 +25,7 @@ jobs:
           CARGO_INCREMENTAL: '0'
           RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
           RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-      - uses: actions-rs/grcov@bb47b1ed7883a1502fa6875d562727ace2511248
+      - uses: actions-rs/grcov@770fa904bcbfc50da498080d1511da7388e6ddc6
         with:
           config: configs/grcov.yml
       - name: Coveralls upload
