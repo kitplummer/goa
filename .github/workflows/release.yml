@@ -32,7 +32,7 @@ jobs:
 
       - name: Build Changelog
         id: github_release
-        uses: mikepenz/release-changelog-builder-action@b3052f763dab519e99cbe1e781ed5227536bd1ea
+        uses: mikepenz/release-changelog-builder-action@b10df5abf7b3652a069c096eff9d6908670ce102
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
