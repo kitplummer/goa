@@ -1,6 +1,6 @@
 [package]
-name = "goa"
-version = "0.0.12"
+name = "gitops-agent"
+version = "0.1.0-rc.1"
 edition = "2021"
 authors = ["kitplummer@gmail.com"]
 description = "GitOps Agent - continuously monitors a remote git repository against local/any change, and performs actions (e.g. executes a provided command) - given a periodicity that is defined as a time intervals."
@@ -8,6 +8,13 @@ repository = "https://github.com/kitplummer/goa"
 homepage = "https://kitplummer.github.io/goa"
 readme = "README.md"
 license = "MIT"
+keywords = ["gitops", "git", "ci", "automation", "devops"]
+categories = ["command-line-utilities", "development-tools"]
+
+[[bin]]
+name = "goa"
+path = "src/main.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
