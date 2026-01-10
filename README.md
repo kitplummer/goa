@@ -21,17 +21,15 @@ Download a binary from the [releases](https://github.com/kitplummer/goa/releases
 ```
 A command-line GitOps utility agent
 
-USAGE:
-    goa <SUBCOMMAND>
+Usage: goa <COMMAND>
 
-FLAGS:
-    -h, --help       Prints help information
-    -V, --version    Prints version information
+Commands:
+  spy      Spy a remote git repo for changes, will continuously execute defined script/command on a diff
+  radicle  Watch a Radicle repository for changes via HTTP API
+  help     Print this message or the help of the given subcommand(s)
 
-SUBCOMMANDS:
-    help      Prints this message or the help of the given subcommand(s)
-    spy       Spy a remote git repo for changes, will continuously execute defined script/command on a diff
-    radicle   Watch a Radicle repository for changes via HTTP API
+Options:
+  -h, --help  Print help
 ```
 
 #### Version (--version)
@@ -43,47 +41,44 @@ This does exactly what you'd expect.
 ```
 Spy a remote git repo for changes, will continuously execute defined script/command on a diff
 
-USAGE:
-    goa spy [FLAGS] [OPTIONS] <url>
+Usage: goa spy [OPTIONS] <URL>
 
-FLAGS:
-    -e, --exec-on-start         Execute the command, or .goa file, on start
-    -x, --exit-on-first-diff    Exit immediately after first diff spied
-    -h, --help                  Prints help information
-    -V, --version               Prints version information
+Arguments:
+  <URL>  The remote git repo to watch for changes
 
-OPTIONS:
-    -b, --branch <branch>              The branch of the remote git repo to watch for changes [default: main]
-    -c, --command <command>            The command to run when a change is detected [default: ]
-    -d, --delay <delay>                The time between checks in seconds, max 65535 [default: 120]
-    -T, --target-path <target-path>    The target path for the clone
-    -t, --token <token>                The access token for cloning and fetching of the remote repo
-    -u, --username <username>          Username, owner of the token - required for private repos
-    -v, --verbosity <verbosity>        Adjust level of stdout, 0 no goa output , max 2 (debug) [default: 1]
-
-ARGS:
-    <url>    The remote git repo to watch for changes
+Options:
+  -b, --branch <BRANCH>            The branch of the remote git repo to watch for changes [default: main]
+  -d, --delay <DELAY>              The time between checks in seconds, max 65535 [default: 120]
+  -u, --username <USERNAME>        Username, owner of the token - required for private repos
+  -t, --token <TOKEN>              The access token for cloning and fetching of the remote repo
+  -c, --command <COMMAND>          The command to run when a change is detected [default: ]
+  -v, --verbosity <VERBOSITY>      Adjust level of stdout, 0 no goa output, max 2 (debug) [default: 1]
+  -e, --exec-on-start              Execute the command, or .goa file, on start
+  -x, --exit-on-first-diff         Exit immediately after first diff spied
+  -T, --target-path <TARGET_PATH>  The target path for the clone
+      --timeout <TIMEOUT>          Timeout for command execution in seconds (0 = no timeout) [default: 0]
+  -h, --help                       Print help
 ```
 
 #### Examples
 
-* `goa -c 'echo "hello from goa"' -e -d 20 https://github.com/kitplummer/goa_tester`
+* `goa spy -c 'echo "hello from goa"' -e -d 20 https://github.com/kitplummer/goa_tester`
 
 This will echo out to the command line on startup, and then on any change to the main branch, looking for changes every 20 seconds.
 
-* `goa -d 120 -b develop -v 3 https://github.com/kitplummer/goa_tester`
+* `goa spy -d 120 -b develop -v 2 https://github.com/kitplummer/goa_tester`
 
-This will execute the contents of the `.goa` file in the repo on any diffs found in the develop branch, looking for changes every 120 seconds.  It will also log out debug-level details, which occur inside the processing loop (may get noisy).
+This will execute the contents of the `.goa` file in the repo on any diffs found in the develop branch, looking for changes every 120 seconds. It will also log out debug-level details, which occur inside the processing loop (may get noisy).
 
-* `goa -c 'echo "change by ${GOA_LAST_COMMIT_AUTHOR} made to main branch" https://github.com/kitplummer/goa_tester`
+* `goa spy -c 'echo "change by ${GOA_LAST_COMMIT_AUTHOR} made to main branch"' https://github.com/kitplummer/goa_tester`
 
 This will output the author of the last commit made to the main branch, looking for changes every 120 seconds.
 
-* `goa -c 'echo "changed!" -x https://github.com/kitplummer/goa_tester`
+* `goa spy -c 'echo "changed!"' -x https://github.com/kitplummer/goa_tester`
 
 This will output "changed!" on stdout then exit after the first diff is identified on the "main" branch of the provided remote repo.
 
-* `goa -c 'echo "changed!" -T "/tmp/goa" -x https://github.com/kitplummer/goa_tester`
+* `goa spy -c 'echo "changed!"' -T "/tmp/goa" -x https://github.com/kitplummer/goa_tester`
 
 Will do the same as above, but create the local clone at `/tmp/goa`.
 
@@ -176,7 +171,7 @@ If there is something specific you're looking for here, let me know via an [issu
 
 Underneath, goa is providing the `cmd /C` so you don't need to pass that in - just the command.
 
-`spy -c 'echo hello' -d 20 -v 3 https://github.com/kitplummer/goa_tester`
+`goa spy -c 'echo hello' -d 20 -v 2 https://github.com/kitplummer/goa_tester`
 
 And if you are using a `.goa` file, reference the command calling a batch like
 

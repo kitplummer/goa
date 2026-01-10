@@ -326,3 +326,100 @@ pub fn do_merge<'a>(
         Ok(CommitMetadata::default())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_commit_metadata_default() {
+        let metadata = CommitMetadata::default();
+        assert_eq!(metadata.id, "");
+        assert_eq!(metadata.author, "");
+        assert_eq!(metadata.message, "");
+        assert_eq!(metadata.time, "");
+    }
+
+    #[test]
+    fn test_commit_metadata_to_env_vars() {
+        let metadata = CommitMetadata {
+            id: "abc123def456".to_string(),
+            author: "Test Author <test@example.com>".to_string(),
+            message: "Fix bug in feature".to_string(),
+            time: "2024-01-15 10:30:00 UTC".to_string(),
+        };
+
+        let vars = metadata.to_env_vars();
+
+        assert_eq!(vars.len(), 4);
+        assert_eq!(
+            vars.get("GOA_LAST_COMMIT_ID"),
+            Some(&"abc123def456".to_string())
+        );
+        assert_eq!(
+            vars.get("GOA_LAST_COMMIT_AUTHOR"),
+            Some(&"Test Author <test@example.com>".to_string())
+        );
+        assert_eq!(
+            vars.get("GOA_LAST_COMMIT_MESSAGE"),
+            Some(&"Fix bug in feature".to_string())
+        );
+        assert_eq!(
+            vars.get("GOA_LAST_COMMIT_TIME"),
+            Some(&"2024-01-15 10:30:00 UTC".to_string())
+        );
+    }
+
+    #[test]
+    fn test_commit_metadata_clone() {
+        let original = CommitMetadata {
+            id: "abc123".to_string(),
+            author: "Author".to_string(),
+            message: "Message".to_string(),
+            time: "Time".to_string(),
+        };
+
+        let cloned = original.clone();
+
+        assert_eq!(cloned.id, original.id);
+        assert_eq!(cloned.author, original.author);
+        assert_eq!(cloned.message, original.message);
+        assert_eq!(cloned.time, original.time);
+    }
+
+    #[test]
+    fn test_commit_metadata_empty_values() {
+        let metadata = CommitMetadata {
+            id: "".to_string(),
+            author: "".to_string(),
+            message: "".to_string(),
+            time: "".to_string(),
+        };
+
+        let vars = metadata.to_env_vars();
+
+        // Even empty values should be present in the env vars
+        assert_eq!(vars.len(), 4);
+        assert_eq!(vars.get("GOA_LAST_COMMIT_ID"), Some(&"".to_string()));
+        assert_eq!(vars.get("GOA_LAST_COMMIT_AUTHOR"), Some(&"".to_string()));
+        assert_eq!(vars.get("GOA_LAST_COMMIT_MESSAGE"), Some(&"".to_string()));
+        assert_eq!(vars.get("GOA_LAST_COMMIT_TIME"), Some(&"".to_string()));
+    }
+
+    #[test]
+    fn test_commit_metadata_special_chars() {
+        let metadata = CommitMetadata {
+            id: "abc123".to_string(),
+            author: "Author Name <author@example.com>".to_string(),
+            message: "Fix: handle \"special\" chars & newlines\nLine 2".to_string(),
+            time: "2024-01-15T10:30:00+00:00".to_string(),
+        };
+
+        let vars = metadata.to_env_vars();
+
+        assert_eq!(
+            vars.get("GOA_LAST_COMMIT_MESSAGE"),
+            Some(&"Fix: handle \"special\" chars & newlines\nLine 2".to_string())
+        );
+    }
+}
