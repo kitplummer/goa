@@ -33,6 +33,9 @@ pub enum Action {
         /// The target path for the clone
         #[arg(short = 'T', long)]
         target_path: Option<String>,
+        /// Timeout for command execution in seconds (0 = no timeout)
+        #[arg(long, default_value = "0")]
+        timeout: u64,
     },
 }
 
