@@ -267,7 +267,7 @@ pub fn watch_radicle(config: RadicleConfig) -> Result<()> {
     if config.watch_patches() {
         if let Ok(patches) = fetch_patches(&client, &config) {
             for patch in patches {
-                if let Some(rev) = patch.revisions.first() {
+                if let Some(rev) = patch.revisions.last() {
                     state.last_patch_timestamps.insert(patch.id.clone(), rev.timestamp);
                 }
             }
@@ -390,7 +390,7 @@ fn check_for_changes(
                     continue;
                 }
 
-                if let Some(rev) = patch.revisions.first() {
+                if let Some(rev) = patch.revisions.last() {
                     let last_timestamp = state.last_patch_timestamps.get(&patch.id).copied();
 
                     let is_new_or_updated = match last_timestamp {
