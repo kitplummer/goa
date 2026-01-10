@@ -29,8 +29,9 @@ FLAGS:
     -V, --version    Prints version information
 
 SUBCOMMANDS:
-    help    Prints this message or the help of the given subcommand(s)
-    spy     Spy a remote git repo for changes, will continuously execute defined script/command on a diff
+    help      Prints this message or the help of the given subcommand(s)
+    spy       Spy a remote git repo for changes, will continuously execute defined script/command on a diff
+    radicle   Watch a Radicle repository for changes via HTTP API
 ```
 
 #### Version (--version)
@@ -85,6 +86,73 @@ This will output "changed!" on stdout then exit after the first diff is identifi
 * `goa -c 'echo "changed!" -T "/tmp/goa" -x https://github.com/kitplummer/goa_tester`
 
 Will do the same as above, but create the local clone at `/tmp/goa`.
+
+#### Radicle
+
+Watch a [Radicle](https://radicle.xyz) repository for changes via HTTP API. This enables CI/CD for decentralized git projects.
+
+```
+Watch a Radicle repository for changes via HTTP API
+
+Usage: goa radicle [OPTIONS] --seed-url <SEED_URL> --rid <RID>
+
+Options:
+  -s, --seed-url <SEED_URL>      The Radicle seed node URL (e.g., https://iris.radicle.xyz)
+  -r, --rid <RID>                The Radicle repository ID (e.g., rad:z3fF7wV6LXz915ND1nbHTfeY3Qcq7)
+  -c, --command <COMMAND>        The command to run when a change is detected [default: ]
+  -d, --delay <DELAY>            The time between checks in seconds, max 65535 [default: 120]
+  -v, --verbosity <VERBOSITY>    Adjust level of stdout, 0 no goa output, max 2 (debug) [default: 1]
+      --timeout <TIMEOUT>        Timeout for command execution in seconds (0 = no timeout) [default: 0]
+  -p, --watch-patches            Watch for patch (PR) updates in addition to head changes
+  -l, --local-path <LOCAL_PATH>  Local working directory for command execution and .goa file
+```
+
+##### Radicle Examples
+
+* Watch for pushes and patches on a Radicle repo:
+```bash
+goa radicle -s https://iris.radicle.xyz -r rad:z3fF7wV6LXz915ND1nbHTfeY3Qcq7 -c './run-ci.sh'
+```
+
+* Watch only for head changes (no patches):
+```bash
+goa radicle -s https://iris.radicle.xyz -r rad:z3fF7wV6LXz915ND1nbHTfeY3Qcq7 -c 'echo "new push!"' --watch-patches=false
+```
+
+##### Radicle Environment Variables
+
+When triggered by Radicle events, goa provides these environment variables:
+
+| Variable | Description |
+|----------|-------------|
+| `GOA_RADICLE_RID` | Repository ID (e.g., `rad:z3fF7wV6LXz915ND1nbHTfeY3Qcq7`) |
+| `GOA_RADICLE_URL` | Seed node URL |
+| `GOA_TRIGGER_TYPE` | `push` or `patch` |
+| `GOA_COMMIT_OID` | Commit SHA to test |
+| `GOA_PATCH_ID` | Patch ID (if trigger_type=patch) |
+| `GOA_BASE_COMMIT` | Base commit for patches |
+| `GOA_PATCH_STATE` | Patch state: open/merged/archived |
+| `GOA_PATCH_TITLE` | Patch title |
+
+##### Example CI Script for Radicle
+
+```bash
+#!/bin/bash
+echo "Testing commit $GOA_COMMIT_OID"
+if [ "$GOA_TRIGGER_TYPE" = "patch" ]; then
+  echo "Patch: $GOA_PATCH_ID - $GOA_PATCH_TITLE"
+  echo "Base: $GOA_BASE_COMMIT"
+fi
+
+# Clone from local Radicle storage and checkout the commit
+git clone ~/.radicle/storage/${GOA_RADICLE_RID#rad:} /tmp/ci-$$
+cd /tmp/ci-$$
+git checkout $GOA_COMMIT_OID
+
+# Run tests
+cargo test
+```
+
 ### Using a `.goa` File
 
 If no `-c`/`--command` is provided when starting `goa` - it will automatically look for a `.goa` file in the remote git repository, and execute the command within it.

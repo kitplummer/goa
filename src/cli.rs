@@ -37,6 +37,34 @@ pub enum Action {
         #[arg(long, default_value = "0")]
         timeout: u64,
     },
+
+    /// Watch a Radicle repository for changes via HTTP API
+    Radicle {
+        /// The Radicle seed node URL (e.g., https://iris.radicle.xyz)
+        #[arg(short = 's', long)]
+        seed_url: String,
+        /// The Radicle repository ID (e.g., rad:z3fF7wV6LXz915ND1nbHTfeY3Qcq7)
+        #[arg(short, long)]
+        rid: String,
+        /// The command to run when a change is detected
+        #[arg(short, long, default_value = "")]
+        command: String,
+        /// The time between checks in seconds, max 65535
+        #[arg(short, long, default_value = "120")]
+        delay: u16,
+        /// Adjust level of stdout, 0 no goa output, max 2 (debug)
+        #[arg(short, long, default_value = "1")]
+        verbosity: u8,
+        /// Timeout for command execution in seconds (0 = no timeout)
+        #[arg(long, default_value = "0")]
+        timeout: u64,
+        /// Watch for patch (PR) updates in addition to head changes
+        #[arg(short = 'p', long, default_value = "true")]
+        watch_patches: bool,
+        /// Local working directory for command execution and .goa file
+        #[arg(short = 'l', long)]
+        local_path: Option<String>,
+    },
 }
 
 #[derive(Debug, Parser)]
