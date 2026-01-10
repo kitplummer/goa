@@ -35,7 +35,7 @@ pub fn spy_repo(mut repo: Repo) -> Result<()> {
         }
     };
 
-    if repo.local_path == None {
+    if repo.local_path.is_none() {
         // Get a temp directory to do work in
         let temp_dir = temp_dir();
         let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();

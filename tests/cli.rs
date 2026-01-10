@@ -22,7 +22,7 @@ fn test_spy_repo_command_bad_url() -> Result<(), Box<dyn std::error::Error>> {
 fn test_spy_repo_command_missing_auth() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = Command::cargo_bin("goa")?;
     cmd.arg("spy");
-    cmd.arg("https://github.com/kitplummer/cliban");
+    cmd.arg("https://github.com/kitplummer/hive-node");
     cmd.assert()
         //.failure()
         .stderr(predicates::str::contains(
@@ -39,7 +39,7 @@ fn test_spy_repo_command_bad_auth() -> Result<(), Box<dyn std::error::Error>> {
     cmd.arg("fred");
     cmd.arg("-t");
     cmd.arg("flintstone");
-    cmd.arg("https://github.com/kitplummer/cliban");
+    cmd.arg("https://github.com/kitplummer/hive-node");
     cmd.assert().stderr(predicates::str::contains(
         "goa error: failed to clone -> remote authentication required",
     ));
