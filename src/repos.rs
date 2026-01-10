@@ -62,26 +62,29 @@ impl Repo {
         }
     }
 
-    pub fn clone_repo(&self) {
+    pub fn clone_repo(&self) -> Result<()> {
+        let local_path = self
+            .local_path
+            .as_ref()
+            .ok_or_else(|| Error::other("local_path is not set"))?;
+
         // Some OS-specific non-sense with trailing / in paths
-        let local_target = str::replace(self.local_path.as_ref().unwrap(), "//", "/");
+        let local_target = str::replace(local_path, "//", "/");
         match Repository::clone(self.url.as_str(), local_target) {
             Ok(_repo) => {
                 if self.verbosity > 0 {
-                    info!(
-                        "cloned remote repo to {}",
-                        self.local_path.as_ref().unwrap()
-                    );
+                    info!("cloned remote repo to {}", local_path);
                 }
+                Ok(())
             }
             Err(e) => {
-                eprintln!("goa error: failed to clone -> {}", e);
-                std::process::exit(1);
+                let msg = format!("goa error: failed to clone -> {}", e);
+                Err(Error::other(msg))
             }
-        };
+        }
     }
 
-    pub fn spy_for_changes(&self) {
+    pub fn spy_for_changes(&self) -> Result<()> {
         if self.verbosity > 0 {
             info!("checking for diffs every {} seconds", self.delay);
         }
@@ -90,24 +93,36 @@ impl Repo {
         let mut scheduler = Scheduler::new();
         let delay = self.delay as u32;
         let cloned_repo = Arc::new(Mutex::new(self.clone()));
+
         if self.exec_on_start {
-            let mut mut_repo = cloned_repo.lock().unwrap();
+            let mut mut_repo = cloned_repo
+                .lock()
+                .map_err(|e| Error::other(format!("Failed to acquire lock: {}", e)))?;
             match do_process_once(mut_repo.deref_mut()) {
                 Ok(()) => {
                     if self.verbosity > 0 {
                         info!("exec on startup complete");
                     }
                 }
-                Err(_e) => {
-                    eprintln!("goa error: failed to exec on startup");
+                Err(e) => {
+                    // exec_on_start failure is fatal - return the error
+                    return Err(Error::other(format!("failed to exec on startup: {}", e)));
                 }
             }
         }
 
         // Add the repo to scheduler
         scheduler.every(delay.seconds()).run(move || {
-            let mut mut_repo = cloned_repo.lock().unwrap();
-            do_process(mut_repo.deref_mut()).expect("Error: unable to attach to local repo.")
+            match cloned_repo.lock() {
+                Ok(mut mut_repo) => {
+                    if let Err(e) = do_process(mut_repo.deref_mut()) {
+                        eprintln!("goa error: unable to process repo: {}", e);
+                    }
+                }
+                Err(e) => {
+                    eprintln!("goa error: failed to acquire lock: {}", e);
+                }
+            }
         });
 
         // Manually run the scheduler in an event loop
@@ -120,30 +135,35 @@ impl Repo {
 
 pub fn read_goa_file(goa_path: String) -> String {
     if std::path::Path::new(&goa_path).exists() {
-        std::fs::read_to_string(goa_path).unwrap()
+        std::fs::read_to_string(goa_path).unwrap_or_else(|_| {
+            String::from("echo 'failed to read .goa file'")
+        })
     } else {
         String::from("echo 'no goa file found yet'")
     }
 }
 
 pub fn do_process_once(repo: &mut Repo) -> Result<()> {
-    let local_repo = match Repository::open(repo.local_path.as_ref().unwrap()) {
-        Ok(local_repo) => local_repo,
-        Err(e) => {
-            eprintln!("goa error: failed to open the cloned repo");
-            //std::process::exit(1);
-            return Err(Error::other(e.to_string()));
-        }
-    };
+    let local_path = repo
+        .local_path
+        .as_ref()
+        .ok_or_else(|| Error::other("local_path is not set"))?;
 
-    git::set_last_commit(&local_repo, &repo.branch.to_string(), repo.verbosity);
+    let local_repo = Repository::open(local_path).map_err(|e| {
+        Error::other(format!("goa error: failed to open the cloned repo: {}", e))
+    })?;
+
+    git::set_last_commit(&local_repo, &repo.branch, repo.verbosity).map_err(|e| {
+        Error::other(format!("branch '{}' not found: {}", repo.branch, e))
+    })?;
 
     if repo.command.is_empty() {
-        repo.command = read_goa_file(format!("{}/.goa", repo.local_path.as_ref().unwrap()));
+        repo.command = read_goa_file(format!("{}/.goa", local_path));
         if repo.verbosity > 2 {
             debug!(".goa file command {}", repo.command);
         }
     }
+
     match do_task(repo) {
         Ok(output) => {
             if repo.verbosity > 0 {
@@ -160,32 +180,26 @@ pub fn do_process_once(repo: &mut Repo) -> Result<()> {
 }
 
 pub fn do_process(repo: &mut Repo) -> Result<()> {
-    // Get the real Repository
-    let local_repo = match Repository::open(repo.local_path.as_ref().unwrap()) {
-        Ok(local_repo) => local_repo,
-        Err(e) => {
-            eprintln!("goa error: failed to open the cloned repo");
-            //std::process::exit(1);
-            return Err(Error::other(e.to_string()));
-        }
-    };
+    let local_path = repo
+        .local_path
+        .as_ref()
+        .ok_or_else(|| Error::other("local_path is not set"))?
+        .clone();
+
+    let local_repo = Repository::open(&local_path).map_err(|e| {
+        Error::other(format!("goa error: failed to open the cloned repo: {}", e))
+    })?;
 
     if repo.verbosity > 1 {
         info!("checking for diffs at origin/{}!", repo.branch);
     }
 
-    match git::is_diff(
-        &local_repo,
-        "origin",
-        &repo.branch.to_string(),
-        repo.verbosity,
-    ) {
+    match git::is_diff(&local_repo, "origin", &repo.branch, repo.verbosity) {
         Ok(commit) => {
             match git::do_merge(&local_repo, &repo.branch, commit, repo.verbosity) {
                 Ok(()) => {
                     if repo.command.is_empty() {
-                        repo.command =
-                            read_goa_file(format!("{}/.goa", repo.local_path.as_ref().unwrap()));
+                        repo.command = read_goa_file(format!("{}/.goa", local_path));
                         if repo.verbosity > 2 {
                             debug!(".goa file command {}", repo.command);
                         }
@@ -199,6 +213,7 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
                             }
 
                             if repo.exit_on_first_diff {
+                                // Intentional exit after first diff processed
                                 std::process::exit(0);
                             }
                         }
@@ -227,21 +242,28 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
 }
 
 fn do_task(repo: &mut Repo) -> Result<String> {
+    let local_path = repo
+        .local_path
+        .as_ref()
+        .ok_or_else(|| Error::other("local_path is not set"))?;
+
     let command: Vec<&str> = repo.command.split(' ').collect();
 
     if repo.verbosity > 1 {
         info!("running -> {:?}", command);
     }
+
     let mut options = ScriptOptions::new();
-    options.working_directory = Some(PathBuf::from(&repo.local_path.as_ref().unwrap()));
+    options.working_directory = Some(PathBuf::from(local_path));
 
     let args = vec![];
 
     // run the script and get the script execution output
-    let (code, output, error) = run_script::run(&repo.command, &args, &options).unwrap();
+    let (code, output, error) = run_script::run(&repo.command, &args, &options)
+        .map_err(|e| Error::other(format!("Failed to run script: {}", e)))?;
 
     if repo.verbosity > 2 {
-        debug!("path -> {}", &repo.local_path.as_ref().unwrap());
+        debug!("path -> {}", local_path);
     }
 
     if repo.verbosity > 1 {
@@ -250,7 +272,8 @@ fn do_task(repo: &mut Repo) -> Result<String> {
     }
 
     if !error.is_empty() {
-        eprintln!("goa error: {}", error);
+        eprintln!("{}", error);
+        // Exit with the command's exit code - this is intentional behavior
         std::process::exit(code);
     }
 
@@ -306,7 +329,7 @@ mod repos_tests {
         let temp_dir = std::env::temp_dir();
         let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
         let tmp_dir_name = format!("/{}/", uuid::Uuid::new_v4());
-        local_path.push_str(&String::from(tmp_dir_name));
+        local_path.push_str(&tmp_dir_name);
         let mut repo = Repo::new(
             String::from("https://github.com/kitplummer/goa_tester"),
             Some(String::from("")),
@@ -321,7 +344,7 @@ mod repos_tests {
             false,
         );
 
-        repo.clone_repo();
+        repo.clone_repo()?;
 
         assert_eq!(do_process(&mut repo)?, ());
         Ok(())
@@ -332,7 +355,7 @@ mod repos_tests {
         let temp_dir = std::env::temp_dir();
         let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
         let tmp_dir_name = format!("/{}/", uuid::Uuid::new_v4());
-        local_path.push_str(&String::from(tmp_dir_name));
+        local_path.push_str(&tmp_dir_name);
         let mut repo = Repo::new(
             String::from("https://github.com/kitplummer/goa_tester"),
             Some(String::from("")),
@@ -347,7 +370,7 @@ mod repos_tests {
             false,
         );
 
-        repo.clone_repo();
+        repo.clone_repo()?;
         repo.local_path = Some(String::from("/blahdyblahblah"));
         let res = do_process(&mut repo).unwrap_err();
         assert_eq!(res.kind(), ErrorKind::Other);
@@ -360,7 +383,7 @@ mod repos_tests {
         let temp_dir = std::env::temp_dir();
         let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
         let tmp_dir_name = format!("/{}/", uuid::Uuid::new_v4());
-        local_path.push_str(&String::from(tmp_dir_name));
+        local_path.push_str(&tmp_dir_name);
         println!("local_path: {:?}", local_path);
         let mut repo = Repo::new(
             String::from("https://github.com/kitplummer/goa_tester"),
@@ -376,7 +399,7 @@ mod repos_tests {
             false,
         );
 
-        repo.clone_repo();
+        repo.clone_repo()?;
 
         assert_eq!(do_process(&mut repo)?, ());
         Ok(())
