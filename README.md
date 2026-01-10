@@ -12,9 +12,17 @@
 
 See [SECURITY.md](SECURITY.md) for detailed security considerations and deployment recommendations.
 
-## Usage
+## Installation
 
-Download a binary from the [releases](https://github.com/kitplummer/goa/releases) for your OS and CPU architecture.  Be sure to make the binary executable on the UNIX-based OSes (e.g. `chmod +x goa`).
+### From crates.io (recommended)
+```bash
+cargo install gitops-agent
+```
+
+### From releases
+Download a binary from the [releases](https://github.com/kitplummer/goa/releases) for your OS and CPU architecture. Be sure to make the binary executable on UNIX-based OSes (e.g. `chmod +x goa`).
+
+## Usage
 ### Top-level
 
 #### Help (--help)
