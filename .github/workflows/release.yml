@@ -1,6 +1,7 @@
 name: Release
 
-permissions: read-all
+permissions:
+  contents: write
 
 on:
   push:
@@ -13,193 +14,133 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
+        uses: actions/checkout@v4
 
       - name: Install latest rust toolchain
-        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af
-        with:
-          toolchain: stable
-          default: true
-          override: true
-      
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Get tag name
         id: tag_name
-        run: |
-          echo ::set-output name=SOURCE_TAG::${GITHUB_REF#refs/tags/}
+        run: echo "SOURCE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
       - name: Build
         run: cargo build --all --release && strip target/release/goa && mv target/release/goa target/release/goa_amd64
 
       - name: Build Changelog
         id: github_release
-        uses: mikepenz/release-changelog-builder-action@eff1e48187ab0f73c1da7b9980c4a85fc5e169bc
+        uses: mikepenz/release-changelog-builder-action@v5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Release
-        uses: svenstaro/upload-release-action@483c1e56f95e88835747b1c7c60581215016cbf2
+        uses: svenstaro/upload-release-action@v2
         with:
           release_name: ${{ steps.tag_name.outputs.SOURCE_TAG }}
-          repo_token: ${{ secrets.REPO_ACCESS_TOKEN}}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: target/release/goa_amd64
           asset_name: goa_amd64
           tag: ${{ github.ref }}
           overwrite: true
-          body: ${{steps.github_release.outputs.changelog}}
-        env:
-          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
+          body: ${{ steps.github_release.outputs.changelog }}
 
   build-aarch64-linux:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
+        uses: actions/checkout@v4
+
       - name: Install latest rust toolchain
-        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          default: true
-          override: true
-          target: aarch64-unknown-linux-gnu
+          targets: aarch64-unknown-linux-gnu
 
       - name: Build
         run: |
-          sudo apt install musl-dev musl-tools
-          cargo install cross
+          sudo apt-get update
+          sudo apt-get install -y musl-dev musl-tools
+          cargo install cross --git https://github.com/cross-rs/cross
           cross build --target=aarch64-unknown-linux-gnu --release && mv target/aarch64-unknown-linux-gnu/release/goa target/aarch64-unknown-linux-gnu/release/goa_aarch64
 
       - name: Release
-        uses: svenstaro/upload-release-action@483c1e56f95e88835747b1c7c60581215016cbf2
+        uses: svenstaro/upload-release-action@v2
         with:
-          repo_token: ${{ secrets.REPO_ACCESS_TOKEN}}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: target/aarch64-unknown-linux-gnu/release/goa_aarch64
           asset_name: goa_aarch64
           tag: ${{ github.ref }}
           overwrite: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
 
   build-arm-linux:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
+        uses: actions/checkout@v4
+
       - name: Install latest rust toolchain
-        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          default: true
-          override: true
-          target: arm-unknown-linux-gnueabihf
+          targets: arm-unknown-linux-gnueabihf
 
       - name: Build
         run: |
-          sudo apt install musl-dev musl-tools
-          cargo install cross
+          sudo apt-get update
+          sudo apt-get install -y musl-dev musl-tools
+          cargo install cross --git https://github.com/cross-rs/cross
           cross build --target=arm-unknown-linux-gnueabihf --release && mv target/arm-unknown-linux-gnueabihf/release/goa target/arm-unknown-linux-gnueabihf/release/goa_arm
 
       - name: Release
-        uses: svenstaro/upload-release-action@483c1e56f95e88835747b1c7c60581215016cbf2
+        uses: svenstaro/upload-release-action@v2
         with:
-          repo_token: ${{ secrets.REPO_ACCESS_TOKEN}}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: target/arm-unknown-linux-gnueabihf/release/goa_arm
           asset_name: goa_arm
           tag: ${{ github.ref }}
           overwrite: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
-
-
-  build-centos-7:
-    runs-on: ubuntu-latest
-    container: 'centos:7'
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
-
-      - name: Install latest rust toolchain
-        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af
-        with:
-          toolchain: stable
-          default: true
-          override: true
-
-      - name: Build
-        run: |
-          yum group install -y "Development Tools"
-          yum install -y openssl-devel
-          cargo build --all --release && strip target/release/goa && mv target/release/goa target/release/goa_centos_7
-
-      - name: Release
-        uses: svenstaro/upload-release-action@483c1e56f95e88835747b1c7c60581215016cbf2
-        with:
-          repo_token: ${{ secrets.REPO_ACCESS_TOKEN}}
-          file: target/release/goa_centos_7
-          asset_name: goa_centos_7
-          tag: ${{ github.ref }}
-          overwrite: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
 
   build-win:
     runs-on: windows-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
+        uses: actions/checkout@v4
 
       - name: Install latest rust toolchain
-        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af
-        with:
-          toolchain: stable
-          default: true
-          override: true
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Build
         run: cargo build --all --release
 
       - name: Release
-        uses: svenstaro/upload-release-action@483c1e56f95e88835747b1c7c60581215016cbf2
+        uses: svenstaro/upload-release-action@v2
         with:
-          repo_token: ${{ secrets.REPO_ACCESS_TOKEN}}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: target/release/goa.exe
           asset_name: goa.exe
           tag: ${{ github.ref }}
           overwrite: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
 
   build-mac:
     runs-on: macos-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
-        with:
-          ssh-key: "${{ secrets.COMMIT_KEY }}"
+        uses: actions/checkout@v4
 
       - name: Install latest rust toolchain
-        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          target: x86_64-apple-darwin
-          default: true
-          override: true
+          targets: x86_64-apple-darwin
 
       - name: Build for mac
         run: cargo build --all --release && strip target/release/goa && mv target/release/goa target/release/goa_darwin
 
       - name: Release
-        uses: svenstaro/upload-release-action@483c1e56f95e88835747b1c7c60581215016cbf2
+        uses: svenstaro/upload-release-action@v2
         with:
-          repo_token: ${{ secrets.REPO_ACCESS_TOKEN}}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: target/release/goa_darwin
           asset_name: goa_darwin
           tag: ${{ github.ref }}
           overwrite: true
-          body: "built for X86 macOS"
-        env:
-          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
