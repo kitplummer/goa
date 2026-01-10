@@ -220,3 +220,73 @@ fn add_and_commit(repo: &Repository, path: &Path, message: &str) -> Result<Oid, 
         }
     }
 }
+
+// Radicle subcommand tests
+
+#[test]
+fn test_radicle_help_command() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cmd = Command::cargo_bin("goa")?;
+    cmd.arg("radicle");
+    cmd.arg("--help");
+    cmd.assert().stdout(predicates::str::contains(
+        "Watch a Radicle repository for changes via HTTP API",
+    ));
+    cmd.assert()
+        .stdout(predicates::str::contains("--seed-url"));
+    cmd.assert().stdout(predicates::str::contains("--rid"));
+    Ok(())
+}
+
+#[test]
+fn test_radicle_missing_required_args() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cmd = Command::cargo_bin("goa")?;
+    cmd.arg("radicle");
+    cmd.assert().failure().stderr(predicates::str::contains(
+        "required arguments were not provided",
+    ));
+    Ok(())
+}
+
+#[test]
+fn test_radicle_missing_rid() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cmd = Command::cargo_bin("goa")?;
+    cmd.arg("radicle");
+    cmd.arg("--seed-url");
+    cmd.arg("https://iris.radicle.xyz");
+    cmd.assert()
+        .failure()
+        .stderr(predicates::str::contains("--rid <RID>"));
+    Ok(())
+}
+
+#[test]
+fn test_radicle_missing_seed_url() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cmd = Command::cargo_bin("goa")?;
+    cmd.arg("radicle");
+    cmd.arg("--rid");
+    cmd.arg("rad:z123");
+    cmd.assert()
+        .failure()
+        .stderr(predicates::str::contains("--seed-url <SEED_URL>"));
+    Ok(())
+}
+
+#[test]
+fn test_radicle_timeout_flag() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cmd = Command::cargo_bin("goa")?;
+    cmd.arg("radicle");
+    cmd.arg("--help");
+    cmd.assert()
+        .stdout(predicates::str::contains("--timeout <TIMEOUT>"));
+    Ok(())
+}
+
+#[test]
+fn test_spy_timeout_flag() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cmd = Command::cargo_bin("goa")?;
+    cmd.arg("spy");
+    cmd.arg("--help");
+    cmd.assert()
+        .stdout(predicates::str::contains("--timeout <TIMEOUT>"));
+    Ok(())
+}

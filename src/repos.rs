@@ -73,6 +73,7 @@ impl Repo {
         self.command.as_deref()
     }
 
+    #[allow(dead_code)]
     pub fn delay(&self) -> u16 {
         self.delay
     }
@@ -81,6 +82,7 @@ impl Repo {
         self.verbosity
     }
 
+    #[allow(dead_code)]
     pub fn exec_on_start(&self) -> bool {
         self.exec_on_start
     }
