@@ -1,8 +1,10 @@
 mod cli;
 mod git;
+mod radicle;
 mod repos;
 mod spy;
 
+use crate::radicle::RadicleConfig;
 use crate::repos::Repo;
 use clap::Parser;
 use cli::{Action::*, CommandLineArgs};
@@ -50,21 +52,53 @@ fn main() -> anyhow::Result<()> {
 
             let repo = builder.build();
 
-            let log_level = match verbosity {
-                0 => "error",
-                1 => "info",
-                _ => "debug",
-            };
-
-            Builder::from_env(Env::default().default_filter_or(log_level))
-                .target(Target::Stdout)
-                .init();
-
+            init_logger(verbosity);
             info!("starting");
 
             spy::spy_repo(repo)
         }
+
+        Radicle {
+            seed_url,
+            rid,
+            command,
+            delay,
+            verbosity,
+            timeout,
+            watch_patches,
+            local_path,
+        } => {
+            let mut builder = RadicleConfig::builder(&seed_url, &rid)
+                .delay(delay)
+                .verbosity(verbosity)
+                .timeout(timeout)
+                .watch_patches(watch_patches)
+                .command(command);
+
+            if let Some(path) = local_path {
+                builder = builder.local_path(path);
+            }
+
+            let config = builder.build();
+
+            init_logger(verbosity);
+            info!("starting radicle watcher");
+
+            radicle::watch_radicle(config)
+        }
     }?;
 
     Ok(())
+}
+
+fn init_logger(verbosity: u8) {
+    let log_level = match verbosity {
+        0 => "error",
+        1 => "info",
+        _ => "debug",
+    };
+
+    Builder::from_env(Env::default().default_filter_or(log_level))
+        .target(Target::Stdout)
+        .init();
 }
