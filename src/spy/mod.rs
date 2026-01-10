@@ -1,5 +1,5 @@
 use std::env::temp_dir;
-use std::io::Result;
+use std::io::{Error, Result};
 
 use url::Url;
 use uuid::Uuid;
@@ -14,43 +14,41 @@ pub fn spy_repo(mut repo: Repo) -> Result<()> {
     repo.url = match Url::parse(&repo.url) {
         Ok(mut parsed_url) => {
             if let Some(ref username) = repo.username {
-                if let Err(e) = parsed_url.set_username(username) {
-                    eprintln!("goa error: {:?}", e);
-                    std::process::exit(1);
-                };
+                parsed_url
+                    .set_username(username)
+                    .map_err(|_| Error::other("Failed to set username in URL"))?;
             }
 
             if let Some(ref token) = repo.token {
-                let token_str: &str = &token[..];
-                if let Err(e) = parsed_url.set_password(Option::from(token_str)) {
-                    eprintln!("goa error: {:?}", e);
-                    std::process::exit(1);
-                };
+                parsed_url
+                    .set_password(Some(token))
+                    .map_err(|_| Error::other("Failed to set password in URL"))?;
             }
             parsed_url.to_string()
         }
         Err(e) => {
-            eprintln!("goa error: invalid URL or path, {}", e);
-            std::process::exit(1);
+            return Err(Error::other(format!("goa error: invalid URL or path, {}", e)));
         }
     };
 
     if repo.local_path.is_none() {
         // Get a temp directory to do work in
-        let temp_dir = temp_dir();
-        let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
-        let tmp_dir_name = format!("/{}/", Uuid::new_v4());
-        local_path.push_str(&tmp_dir_name);
+        let temp = temp_dir();
+        let local_path = temp
+            .into_os_string()
+            .into_string()
+            .map_err(|_| Error::other("Failed to convert temp directory path to string"))?;
+        let tmp_dir_name = format!("{}/{}/", local_path, Uuid::new_v4());
 
         // Set the local repo path in the repo struct
-        repo.local_path = Some(local_path);
+        repo.local_path = Some(tmp_dir_name);
     }
 
     // Clone the repo and set the local path
-    repo.clone_repo();
+    repo.clone_repo()?;
 
     // This is where the loop happens...
-    repo.spy_for_changes();
+    repo.spy_for_changes()?;
 
     Ok(())
 }
