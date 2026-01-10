@@ -17,9 +17,31 @@ use git2::{
     AutotagOption, Commit, Diff, DiffStatsFormat, FetchOptions, Object, ObjectType,
     RemoteCallbacks, RemoteUpdateFlags, Repository,
 };
-use std::env;
+use std::collections::HashMap;
 use std::io::Write;
 use std::str;
+
+/// Metadata extracted from a git commit, to be passed to child processes as env vars.
+/// This avoids global env var mutation which is not thread-safe.
+#[derive(Debug, Clone, Default)]
+pub struct CommitMetadata {
+    pub id: String,
+    pub author: String,
+    pub message: String,
+    pub time: String,
+}
+
+impl CommitMetadata {
+    /// Convert to a HashMap suitable for passing to child process environment
+    pub fn to_env_vars(&self) -> HashMap<String, String> {
+        let mut vars = HashMap::new();
+        vars.insert("GOA_LAST_COMMIT_ID".to_string(), self.id.clone());
+        vars.insert("GOA_LAST_COMMIT_AUTHOR".to_string(), self.author.clone());
+        vars.insert("GOA_LAST_COMMIT_MESSAGE".to_string(), self.message.clone());
+        vars.insert("GOA_LAST_COMMIT_TIME".to_string(), self.time.clone());
+        vars
+    }
+}
 
 pub fn is_diff<'a>(
     repo: &'a git2::Repository,
@@ -101,14 +123,15 @@ pub fn is_diff<'a>(
     }
 }
 
-pub fn set_last_commit(
+/// Get commit metadata for the last commit on a branch.
+/// Returns CommitMetadata to be passed to child processes.
+pub fn get_last_commit_metadata(
     repo: &git2::Repository,
     branch_name: &str,
     verbosity: u8,
-) -> Result<(), git2::Error> {
+) -> Result<CommitMetadata, git2::Error> {
     let commit = find_last_commit_on_branch(repo, branch_name)?;
-    commit_to_envs(&commit, verbosity);
-    Ok(())
+    Ok(extract_commit_metadata(&commit, verbosity))
 }
 
 pub fn tree_to_treeish<'a>(
@@ -168,9 +191,12 @@ fn find_last_commit(repo: &Repository) -> Result<Commit<'_>, git2::Error> {
         .map_err(|_| git2::Error::from_str("Couldn't find commit"))
 }
 
-fn commit_to_envs(commit: &Commit, verbosity: u8) {
+/// Extract metadata from a commit. Prints commit info if verbosity > 0.
+/// Returns CommitMetadata instead of setting global env vars (thread-safe).
+fn extract_commit_metadata(commit: &Commit, verbosity: u8) -> CommitMetadata {
     let timestamp = commit.time().seconds();
     let tm = DateTime::from_timestamp(timestamp, 0).unwrap_or_else(Utc::now);
+
     if verbosity > 0 {
         let dt = Utc::now();
         println!(
@@ -182,13 +208,13 @@ fn commit_to_envs(commit: &Commit, verbosity: u8) {
             commit.message().unwrap_or("no commit message")
         );
     }
-    env::set_var("GOA_LAST_COMMIT_ID", commit.id().to_string());
-    env::set_var("GOA_LAST_COMMIT_AUTHOR", commit.author().to_string());
-    env::set_var(
-        "GOA_LAST_COMMIT_MESSAGE",
-        commit.message().unwrap_or(""),
-    );
-    env::set_var("GOA_LAST_COMMIT_TIME", tm.to_string());
+
+    CommitMetadata {
+        id: commit.id().to_string(),
+        author: commit.author().to_string(),
+        message: commit.message().unwrap_or("").to_string(),
+        time: tm.to_string(),
+    }
 }
 
 fn fast_forward(
@@ -250,12 +276,13 @@ fn normal_merge(
     Ok(())
 }
 
+/// Perform a merge and return the commit metadata for the resulting commit.
 pub fn do_merge<'a>(
     repo: &'a Repository,
     remote_branch: &str,
     fetch_commit: git2::AnnotatedCommit<'a>,
     verbosity: u8,
-) -> Result<(), git2::Error> {
+) -> Result<CommitMetadata, git2::Error> {
     // 1. do a merge analysis
     let analysis = repo.merge_analysis(&[&fetch_commit])?;
 
@@ -287,15 +314,15 @@ pub fn do_merge<'a>(
             }
         };
         let commit = find_last_commit(repo)?;
-        commit_to_envs(&commit, verbosity);
+        Ok(extract_commit_metadata(&commit, verbosity))
     } else if analysis.0.is_normal() {
         // do a normal merge
         let head_commit = repo.reference_to_annotated_commit(&repo.head()?)?;
         normal_merge(repo, &head_commit, &fetch_commit)?;
         let commit = find_last_commit(repo)?;
-        commit_to_envs(&commit, verbosity);
+        Ok(extract_commit_metadata(&commit, verbosity))
     } else {
         eprintln!("Error: Nothing to do?");
+        Ok(CommitMetadata::default())
     }
-    Ok(())
 }
