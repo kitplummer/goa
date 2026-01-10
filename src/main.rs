@@ -4,8 +4,8 @@ mod repos;
 mod spy;
 
 use crate::repos::Repo;
+use clap::Parser;
 use cli::{Action::*, CommandLineArgs};
-use structopt::StructOpt;
 
 #[macro_use]
 extern crate log;
@@ -13,7 +13,7 @@ extern crate log;
 use env_logger::{Builder, Env, Target};
 
 fn main() -> anyhow::Result<()> {
-    let CommandLineArgs { action } = CommandLineArgs::from_args();
+    let CommandLineArgs { action } = CommandLineArgs::parse();
 
     match action {
         Spy {

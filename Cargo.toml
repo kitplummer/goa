@@ -12,15 +12,17 @@ license = "MIT"
 
 [dependencies]
 log = "0.4"
-env_logger = "0.9"
+env_logger = "0.11"
 anyhow = "1.0"
-assert_cmd = "2.0"
 chrono = "0.4"
-clokwerk = "0.3.5"
-git2 = "0.13"
-predicates = "2.1"
-structopt = "0.3"
-url = "2.2"
-uuid = { version = "0.8.2", features = ["serde", "v4"] }
+clokwerk = "0.4"
+git2 = "0.20"
+clap = { version = "4", features = ["derive"] }
+url = "2"
+uuid = { version = "1", features = ["serde", "v4"] }
 openssl-sys = { version = "0.9", features = ["vendored"] }
-run_script = { version = "0.9" }
+run_script = "0.11"
+
+[dev-dependencies]
+assert_cmd = "2"
+predicates = "3"

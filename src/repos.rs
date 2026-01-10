@@ -1,4 +1,4 @@
-use std::io::{Error, ErrorKind, Result};
+use std::io::{Error, Result};
 use std::ops::DerefMut;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -20,6 +20,7 @@ pub struct Repo {
     pub url: String,
     pub username: Option<String>,
     pub token: Option<String>,
+    #[allow(dead_code)] // TODO: Issue #11 - store run count and timestamps
     pub status: Option<String>,
     pub local_path: Option<String>,
     pub branch: String,
@@ -126,12 +127,12 @@ pub fn read_goa_file(goa_path: String) -> String {
 }
 
 pub fn do_process_once(repo: &mut Repo) -> Result<()> {
-    let local_repo = match Repository::open(&repo.local_path.as_ref().unwrap()) {
+    let local_repo = match Repository::open(repo.local_path.as_ref().unwrap()) {
         Ok(local_repo) => local_repo,
         Err(e) => {
             eprintln!("goa error: failed to open the cloned repo");
             //std::process::exit(1);
-            return Err(Error::new(ErrorKind::Other, e.to_string()));
+            return Err(Error::other(e.to_string()));
         }
     };
 
@@ -160,12 +161,12 @@ pub fn do_process_once(repo: &mut Repo) -> Result<()> {
 
 pub fn do_process(repo: &mut Repo) -> Result<()> {
     // Get the real Repository
-    let local_repo = match Repository::open(&repo.local_path.as_ref().unwrap()) {
+    let local_repo = match Repository::open(repo.local_path.as_ref().unwrap()) {
         Ok(local_repo) => local_repo,
         Err(e) => {
             eprintln!("goa error: failed to open the cloned repo");
             //std::process::exit(1);
-            return Err(Error::new(ErrorKind::Other, e.to_string()));
+            return Err(Error::other(e.to_string()));
         }
     };
 
@@ -259,6 +260,7 @@ fn do_task(repo: &mut Repo) -> Result<String> {
 #[cfg(test)]
 mod repos_tests {
     use super::*;
+    use std::io::ErrorKind;
 
     #[test]
     fn test_creation_of_repo() {
