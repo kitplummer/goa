@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io::{Error, Read as IoRead, Result};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -287,6 +288,127 @@ pub fn read_goa_file(goa_path: &str) -> String {
         })
     } else {
         String::from("echo 'no goa file found yet'")
+    }
+}
+
+/// Execute a command with optional environment variables.
+/// This is a public function for use by other modules (e.g., radicle).
+pub fn execute_command(
+    command: &str,
+    working_dir: &str,
+    env_vars: Option<HashMap<String, String>>,
+    timeout: u64,
+    verbosity: u8,
+) -> Result<String> {
+    if verbosity > 1 {
+        info!("running -> {}", command);
+        if timeout > 0 {
+            info!("timeout -> {} seconds", timeout);
+        }
+    }
+
+    if verbosity > 2 {
+        debug!("path -> {}", working_dir);
+    }
+
+    // Use timeout-based execution if timeout is set
+    if timeout > 0 {
+        return execute_command_with_timeout(command, working_dir, env_vars, timeout, verbosity);
+    }
+
+    // No timeout - use run_script for simpler execution
+    let mut options = ScriptOptions::new();
+    options.working_directory = Some(PathBuf::from(working_dir));
+    options.env_vars = env_vars;
+
+    let args = vec![];
+
+    let (code, output, error) = run_script::run(command, &args, &options)
+        .map_err(|e| Error::other(format!("Failed to run script: {}", e)))?;
+
+    if verbosity > 1 {
+        info!("command status: {}", code);
+        info!("command stderr:\n{}", error);
+    }
+
+    if !error.is_empty() {
+        eprintln!("{}", error);
+        std::process::exit(code);
+    }
+
+    Ok(output)
+}
+
+/// Execute a command with a timeout.
+fn execute_command_with_timeout(
+    command: &str,
+    working_dir: &str,
+    env_vars: Option<HashMap<String, String>>,
+    timeout: u64,
+    verbosity: u8,
+) -> Result<String> {
+    let timeout_duration = Duration::from_secs(timeout);
+
+    let mut cmd = Command::new("sh");
+    cmd.arg("-c")
+        .arg(command)
+        .current_dir(working_dir)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    if let Some(vars) = env_vars {
+        for (key, value) in vars {
+            cmd.env(key, value);
+        }
+    }
+
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| Error::other(format!("Failed to spawn command: {}", e)))?;
+
+    match child.wait_timeout(timeout_duration) {
+        Ok(Some(status)) => {
+            let mut stdout = String::new();
+            let mut stderr = String::new();
+
+            if let Some(mut out) = child.stdout.take() {
+                out.read_to_string(&mut stdout)
+                    .map_err(|e| Error::other(format!("Failed to read stdout: {}", e)))?;
+            }
+            if let Some(mut err) = child.stderr.take() {
+                err.read_to_string(&mut stderr)
+                    .map_err(|e| Error::other(format!("Failed to read stderr: {}", e)))?;
+            }
+
+            let code = status.code().unwrap_or(-1);
+
+            if verbosity > 1 {
+                info!("command status: {}", code);
+                info!("command stderr:\n{}", stderr);
+            }
+
+            if !stderr.is_empty() {
+                eprintln!("{}", stderr);
+                std::process::exit(code);
+            }
+
+            Ok(stdout)
+        }
+        Ok(None) => {
+            if verbosity > 0 {
+                warn!("Command timed out after {} seconds, killing process", timeout);
+            }
+            child
+                .kill()
+                .map_err(|e| Error::other(format!("Failed to kill timed-out process: {}", e)))?;
+            child.wait().ok();
+
+            Err(Error::other(format!(
+                "Command timed out after {} seconds",
+                timeout
+            )))
+        }
+        Err(e) => Err(Error::other(format!("Failed to wait on command: {}", e))),
     }
 }
 
