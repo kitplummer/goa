@@ -330,12 +330,19 @@ pub fn execute_command(
 
     if verbosity > 1 {
         info!("command status: {}", code);
-        info!("command stderr:\n{}", error);
+        if !error.is_empty() {
+            info!("command stderr:\n{}", error);
+        }
     }
 
+    // Print stderr but don't exit - many commands write progress to stderr
     if !error.is_empty() {
         eprintln!("{}", error);
-        std::process::exit(code);
+    }
+
+    // Return error only if command failed (non-zero exit code)
+    if code != 0 {
+        return Err(Error::other(format!("Command exited with code {}", code)));
     }
 
     Ok(output)
@@ -386,12 +393,19 @@ fn execute_command_with_timeout(
 
             if verbosity > 1 {
                 info!("command status: {}", code);
-                info!("command stderr:\n{}", stderr);
+                if !stderr.is_empty() {
+                    info!("command stderr:\n{}", stderr);
+                }
             }
 
+            // Print stderr but don't exit - many commands write progress to stderr
             if !stderr.is_empty() {
                 eprintln!("{}", stderr);
-                std::process::exit(code);
+            }
+
+            // Return error only if command failed (non-zero exit code)
+            if code != 0 {
+                return Err(Error::other(format!("Command exited with code {}", code)));
             }
 
             Ok(stdout)
