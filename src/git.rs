@@ -30,66 +30,68 @@ pub fn is_diff<'a>(
     let mut cb = RemoteCallbacks::new();
     let mut remote = repo
         .find_remote(remote_name)
-        .or_else(|_| repo.remote_anonymous(remote_name))
-        .unwrap();
+        .or_else(|_| repo.remote_anonymous(remote_name))?;
+
     cb.sideband_progress(|data| {
         if verbosity >= 2 {
             let dt = Utc::now();
-            print!(
-                "goa [{}]: remote: {}",
-                dt,
-                std::str::from_utf8(data).unwrap()
-            );
+            if let Ok(msg) = std::str::from_utf8(data) {
+                print!("goa [{}]: remote: {}", dt, msg);
+            }
         }
-        std::io::stdout().flush().unwrap();
+        let _ = std::io::stdout().flush();
         true
     });
 
     let mut fo = FetchOptions::new();
     fo.remote_callbacks(cb);
-    remote.download(&[] as &[&str], Some(&mut fo)).unwrap();
+    remote.download(&[] as &[&str], Some(&mut fo))?;
 
     // Disconnect the underlying connection to prevent from idling.
-    remote.disconnect().unwrap();
+    remote.disconnect()?;
 
     // Update the references in the remote's namespace to point to the right
     // commits. This may be needed even if there was no packfile to download,
     // which can happen e.g. when the branches have been changed but all the
     // needed objects are available locally.
-    remote
-        .update_tips(None, RemoteUpdateFlags::UPDATE_FETCHHEAD, AutotagOption::Unspecified, None)
-        .unwrap();
+    remote.update_tips(
+        None,
+        RemoteUpdateFlags::UPDATE_FETCHHEAD,
+        AutotagOption::Unspecified,
+        None,
+    )?;
 
     let l = String::from(branch_name);
     let r = format!("{}/{}", remote_name, branch_name);
-    let tl = tree_to_treeish(repo, Some(&l)).unwrap();
-    let tr = tree_to_treeish(repo, Some(&r)).unwrap();
+    let tl = tree_to_treeish(repo, Some(&l))?;
+    let tr = tree_to_treeish(repo, Some(&r))?;
 
-    let head = repo.head().unwrap();
-    let oid = head.target().unwrap();
-    let commit = repo.find_commit(oid).unwrap();
+    let head = repo.head()?;
+    let oid = head
+        .target()
+        .ok_or_else(|| git2::Error::from_str("HEAD has no target"))?;
+    let commit = repo.find_commit(oid)?;
 
     let _branch = repo.branch(branch_name, &commit, false);
 
-    let obj = repo
-        .revparse_single(&("refs/heads/".to_owned() + branch_name))
-        .unwrap();
+    let obj = repo.revparse_single(&("refs/heads/".to_owned() + branch_name))?;
 
     repo.checkout_tree(&obj, None)?;
 
     repo.set_head(&("refs/heads/".to_owned() + branch_name))?;
 
     let diff = match (tl, tr) {
-        (Some(local), Some(origin)) => repo
-            .diff_tree_to_tree(local.as_tree(), origin.as_tree(), None)
-            .unwrap(),
-        (_, _) => unreachable!(),
+        (Some(local), Some(origin)) => {
+            repo.diff_tree_to_tree(local.as_tree(), origin.as_tree(), None)?
+        }
+        (_, _) => return Err(git2::Error::from_str("Could not resolve local or remote tree")),
     };
 
     if diff.deltas().len() > 0 {
-        // TODO: make this a verbose thing
         if verbosity >= 2 {
-            display_stats(&diff).expect("ERROR: unable to print diff stats");
+            if let Err(e) = display_stats(&diff) {
+                eprintln!("Warning: unable to print diff stats: {}", e);
+            }
         }
         let fetch_head = repo.find_reference("FETCH_HEAD")?;
         repo.reference_to_annotated_commit(&fetch_head)
@@ -99,9 +101,14 @@ pub fn is_diff<'a>(
     }
 }
 
-pub fn set_last_commit(repo: &git2::Repository, branch_name: &str, verbosity: u8) {
-    let commit = find_last_commit_on_branch(repo, branch_name);
-    commit_to_envs(&commit.unwrap(), verbosity);
+pub fn set_last_commit(
+    repo: &git2::Repository,
+    branch_name: &str,
+    verbosity: u8,
+) -> Result<(), git2::Error> {
+    let commit = find_last_commit_on_branch(repo, branch_name)?;
+    commit_to_envs(&commit, verbosity);
+    Ok(())
 }
 
 pub fn tree_to_treeish<'a>(
@@ -112,23 +119,21 @@ pub fn tree_to_treeish<'a>(
         Some(s) => s,
         None => return Ok(None),
     };
-    let obj = match repo.revparse_single(arg) {
-        Ok(obj) => obj,
-        Err(_) => {
-            eprintln!("Error: branch not found");
-            std::process::exit(1);
-        }
-    };
-    let tree = obj.peel(ObjectType::Tree).unwrap();
+    let obj = repo.revparse_single(arg).map_err(|e| {
+        git2::Error::from_str(&format!("branch '{}' not found: {}", arg, e))
+    })?;
+    let tree = obj.peel(ObjectType::Tree)?;
     Ok(Some(tree))
 }
 
 fn display_stats(diff: &Diff) -> Result<(), git2::Error> {
-    let stats = diff.stats().unwrap();
+    let stats = diff.stats()?;
     let format = DiffStatsFormat::FULL;
-    let buf = stats.to_buf(format, 80).unwrap();
+    let buf = stats.to_buf(format, 80)?;
     let dt = Utc::now();
-    print!("goa [{}]: {}", dt, std::str::from_utf8(&buf).unwrap());
+    if let Ok(s) = std::str::from_utf8(&buf) {
+        print!("goa [{}]: {}", dt, s);
+    }
     Ok(())
 }
 
@@ -136,18 +141,21 @@ fn find_last_commit_on_branch<'a>(
     repo: &'a Repository,
     branch_name: &str,
 ) -> Result<Commit<'a>, git2::Error> {
-    let (object, reference) = repo.revparse_ext(branch_name).expect("Object not found");
+    let (object, reference) = repo.revparse_ext(branch_name)?;
 
-    repo.checkout_tree(&object, None)
-        .expect("Failed to checkout");
+    repo.checkout_tree(&object, None)?;
 
     match reference {
         // gref is an actual reference like branches or tags
-        Some(gref) => repo.set_head(gref.name().unwrap()),
+        Some(gref) => {
+            let name = gref
+                .name()
+                .ok_or_else(|| git2::Error::from_str("Reference has no name"))?;
+            repo.set_head(name)?;
+        }
         // this is a commit, not a reference
-        None => repo.set_head_detached(object.id()),
+        None => repo.set_head_detached(object.id())?,
     }
-    .expect("Failed to set HEAD");
 
     let obj = repo.head()?.resolve()?.peel(ObjectType::Commit)?;
     obj.into_commit()
@@ -278,13 +286,13 @@ pub fn do_merge<'a>(
                 ))?;
             }
         };
-        let commit = find_last_commit(repo).expect("Couldn't find last commit");
+        let commit = find_last_commit(repo)?;
         commit_to_envs(&commit, verbosity);
     } else if analysis.0.is_normal() {
         // do a normal merge
         let head_commit = repo.reference_to_annotated_commit(&repo.head()?)?;
         normal_merge(repo, &head_commit, &fetch_commit)?;
-        let commit = find_last_commit(repo).expect("Couldn't find last commit");
+        let commit = find_last_commit(repo)?;
         commit_to_envs(&commit, verbosity);
     } else {
         eprintln!("Error: Nothing to do?");
