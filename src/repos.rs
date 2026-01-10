@@ -13,7 +13,7 @@ use clokwerk::{Scheduler, TimeUnits};
 
 use git2::Repository;
 
-use crate::git;
+use crate::git::{self, CommitMetadata};
 
 #[derive(Debug, Clone)]
 pub struct Repo {
@@ -153,9 +153,9 @@ pub fn do_process_once(repo: &mut Repo) -> Result<()> {
         Error::other(format!("goa error: failed to open the cloned repo: {}", e))
     })?;
 
-    git::set_last_commit(&local_repo, &repo.branch, repo.verbosity).map_err(|e| {
-        Error::other(format!("branch '{}' not found: {}", repo.branch, e))
-    })?;
+    // Get commit metadata (thread-safe, no global env var mutation)
+    let metadata = git::get_last_commit_metadata(&local_repo, &repo.branch, repo.verbosity)
+        .map_err(|e| Error::other(format!("branch '{}' not found: {}", repo.branch, e)))?;
 
     if repo.command.is_empty() {
         repo.command = read_goa_file(format!("{}/.goa", local_path));
@@ -164,7 +164,7 @@ pub fn do_process_once(repo: &mut Repo) -> Result<()> {
         }
     }
 
-    match do_task(repo) {
+    match do_task(repo, Some(&metadata)) {
         Ok(output) => {
             if repo.verbosity > 0 {
                 info!("command stdout: {}", output);
@@ -197,14 +197,14 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
     match git::is_diff(&local_repo, "origin", &repo.branch, repo.verbosity) {
         Ok(commit) => {
             match git::do_merge(&local_repo, &repo.branch, commit, repo.verbosity) {
-                Ok(()) => {
+                Ok(metadata) => {
                     if repo.command.is_empty() {
                         repo.command = read_goa_file(format!("{}/.goa", local_path));
                         if repo.verbosity > 2 {
                             debug!(".goa file command {}", repo.command);
                         }
                     }
-                    match do_task(repo) {
+                    match do_task(repo, Some(&metadata)) {
                         Ok(output) => {
                             if repo.verbosity > 0 {
                                 info!("command stdout: {}", output);
@@ -241,7 +241,9 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
     Ok(())
 }
 
-fn do_task(repo: &mut Repo) -> Result<String> {
+/// Execute a command with optional commit metadata passed as env vars to child process.
+/// This is thread-safe as env vars are only set in the child process, not globally.
+fn do_task(repo: &mut Repo, metadata: Option<&CommitMetadata>) -> Result<String> {
     let local_path = repo
         .local_path
         .as_ref()
@@ -255,6 +257,11 @@ fn do_task(repo: &mut Repo) -> Result<String> {
 
     let mut options = ScriptOptions::new();
     options.working_directory = Some(PathBuf::from(local_path));
+
+    // Pass commit metadata as env vars to child process only (thread-safe)
+    if let Some(meta) = metadata {
+        options.env_vars = Some(meta.to_env_vars());
+    }
 
     let args = vec![];
 
@@ -320,7 +327,7 @@ mod repos_tests {
             false,
         );
 
-        let res = do_task(&mut repo);
+        let res = do_task(&mut repo, None);
         assert_eq!(String::from("hello\n"), res.unwrap());
     }
 
