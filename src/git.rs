@@ -12,10 +12,10 @@
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
-use chrono::{NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 use git2::{
     AutotagOption, Commit, Diff, DiffStatsFormat, FetchOptions, Object, ObjectType,
-    RemoteCallbacks, Repository,
+    RemoteCallbacks, RemoteUpdateFlags, Repository,
 };
 use std::env;
 use std::io::Write;
@@ -33,7 +33,7 @@ pub fn is_diff<'a>(
         .or_else(|_| repo.remote_anonymous(remote_name))
         .unwrap();
     cb.sideband_progress(|data| {
-        if verbosity > 2 {
+        if verbosity >= 2 {
             let dt = Utc::now();
             print!(
                 "goa [{}]: remote: {}",
@@ -57,7 +57,7 @@ pub fn is_diff<'a>(
     // which can happen e.g. when the branches have been changed but all the
     // needed objects are available locally.
     remote
-        .update_tips(None, true, AutotagOption::Unspecified, None)
+        .update_tips(None, RemoteUpdateFlags::UPDATE_FETCHHEAD, AutotagOption::Unspecified, None)
         .unwrap();
 
     let l = String::from(branch_name);
@@ -88,7 +88,7 @@ pub fn is_diff<'a>(
 
     if diff.deltas().len() > 0 {
         // TODO: make this a verbose thing
-        if verbosity > 2 {
+        if verbosity >= 2 {
             display_stats(&diff).expect("ERROR: unable to print diff stats");
         }
         let fetch_head = repo.find_reference("FETCH_HEAD")?;
@@ -128,7 +128,7 @@ fn display_stats(diff: &Diff) -> Result<(), git2::Error> {
     let format = DiffStatsFormat::FULL;
     let buf = stats.to_buf(format, 80).unwrap();
     let dt = Utc::now();
-    print!("goa [{}]: {}", dt, std::str::from_utf8(&*buf).unwrap());
+    print!("goa [{}]: {}", dt, std::str::from_utf8(&buf).unwrap());
     Ok(())
 }
 
@@ -154,7 +154,7 @@ fn find_last_commit_on_branch<'a>(
         .map_err(|_| git2::Error::from_str("Couldn't find commit"))
 }
 
-fn find_last_commit(repo: &Repository) -> Result<Commit, git2::Error> {
+fn find_last_commit(repo: &Repository) -> Result<Commit<'_>, git2::Error> {
     let obj = repo.head()?.resolve()?.peel(ObjectType::Commit)?;
     obj.into_commit()
         .map_err(|_| git2::Error::from_str("Couldn't find commit"))
@@ -162,7 +162,7 @@ fn find_last_commit(repo: &Repository) -> Result<Commit, git2::Error> {
 
 fn commit_to_envs(commit: &Commit, verbosity: u8) {
     let timestamp = commit.time().seconds();
-    let tm = NaiveDateTime::from_timestamp(timestamp, 0);
+    let tm = DateTime::from_timestamp(timestamp, 0).unwrap_or_else(Utc::now);
     if verbosity > 0 {
         let dt = Utc::now();
         println!(
@@ -176,7 +176,10 @@ fn commit_to_envs(commit: &Commit, verbosity: u8) {
     }
     env::set_var("GOA_LAST_COMMIT_ID", commit.id().to_string());
     env::set_var("GOA_LAST_COMMIT_AUTHOR", commit.author().to_string());
-    env::set_var("GOA_LAST_COMMIT_MESSAGE", commit.author().to_string());
+    env::set_var(
+        "GOA_LAST_COMMIT_MESSAGE",
+        commit.message().unwrap_or(""),
+    );
     env::set_var("GOA_LAST_COMMIT_TIME", tm.to_string());
 }
 
