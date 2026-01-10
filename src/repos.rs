@@ -1,12 +1,14 @@
-use std::io::{Error, Result};
+use std::io::{Error, Read as IoRead, Result};
 use std::ops::DerefMut;
 use std::path::PathBuf;
+use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
 // For processing the command
 use run_script::ScriptOptions;
+use wait_timeout::ChildExt;
 
 // Scheduler, and trait for .seconds(), .minutes(), etc.
 use clokwerk::{Scheduler, TimeUnits};
@@ -29,6 +31,7 @@ pub struct Repo {
     pub verbosity: u8,
     pub exec_on_start: bool,
     pub exit_on_first_diff: bool,
+    pub timeout: u64,
 }
 
 impl Repo {
@@ -45,6 +48,7 @@ impl Repo {
         verbosity: u8,
         exec_on_start: bool,
         exit_on_first_diff: bool,
+        timeout: u64,
     ) -> Repo {
         // We'll initialize after the clone is successful.
         Repo {
@@ -59,6 +63,7 @@ impl Repo {
             verbosity,
             exec_on_start,
             exit_on_first_diff,
+            timeout,
         }
     }
 
@@ -243,18 +248,30 @@ pub fn do_process(repo: &mut Repo) -> Result<()> {
 
 /// Execute a command with optional commit metadata passed as env vars to child process.
 /// This is thread-safe as env vars are only set in the child process, not globally.
+/// If timeout > 0, the command will be killed after the specified number of seconds.
 fn do_task(repo: &mut Repo, metadata: Option<&CommitMetadata>) -> Result<String> {
     let local_path = repo
         .local_path
         .as_ref()
         .ok_or_else(|| Error::other("local_path is not set"))?;
 
-    let command: Vec<&str> = repo.command.split(' ').collect();
-
     if repo.verbosity > 1 {
-        info!("running -> {:?}", command);
+        info!("running -> {}", repo.command);
+        if repo.timeout > 0 {
+            info!("timeout -> {} seconds", repo.timeout);
+        }
     }
 
+    if repo.verbosity > 2 {
+        debug!("path -> {}", local_path);
+    }
+
+    // Use timeout-based execution if timeout is set
+    if repo.timeout > 0 {
+        return do_task_with_timeout(repo, metadata, local_path);
+    }
+
+    // No timeout - use run_script for simpler execution
     let mut options = ScriptOptions::new();
     options.working_directory = Some(PathBuf::from(local_path));
 
@@ -269,10 +286,6 @@ fn do_task(repo: &mut Repo, metadata: Option<&CommitMetadata>) -> Result<String>
     let (code, output, error) = run_script::run(&repo.command, &args, &options)
         .map_err(|e| Error::other(format!("Failed to run script: {}", e)))?;
 
-    if repo.verbosity > 2 {
-        debug!("path -> {}", local_path);
-    }
-
     if repo.verbosity > 1 {
         info!("command status: {}", code);
         info!("command stderr:\n{}", error);
@@ -285,6 +298,86 @@ fn do_task(repo: &mut Repo, metadata: Option<&CommitMetadata>) -> Result<String>
     }
 
     Ok(output)
+}
+
+/// Execute a command with a timeout. Kills the process if it exceeds the timeout.
+fn do_task_with_timeout(
+    repo: &Repo,
+    metadata: Option<&CommitMetadata>,
+    local_path: &str,
+) -> Result<String> {
+    let timeout_duration = Duration::from_secs(repo.timeout);
+
+    // Build the command using sh -c for shell interpretation
+    let mut cmd = Command::new("sh");
+    cmd.arg("-c")
+        .arg(&repo.command)
+        .current_dir(local_path)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    // Pass commit metadata as env vars
+    if let Some(meta) = metadata {
+        for (key, value) in meta.to_env_vars() {
+            cmd.env(key, value);
+        }
+    }
+
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| Error::other(format!("Failed to spawn command: {}", e)))?;
+
+    // Wait with timeout
+    match child.wait_timeout(timeout_duration) {
+        Ok(Some(status)) => {
+            // Process completed within timeout
+            let mut stdout = String::new();
+            let mut stderr = String::new();
+
+            if let Some(mut out) = child.stdout.take() {
+                out.read_to_string(&mut stdout)
+                    .map_err(|e| Error::other(format!("Failed to read stdout: {}", e)))?;
+            }
+            if let Some(mut err) = child.stderr.take() {
+                err.read_to_string(&mut stderr)
+                    .map_err(|e| Error::other(format!("Failed to read stderr: {}", e)))?;
+            }
+
+            let code = status.code().unwrap_or(-1);
+
+            if repo.verbosity > 1 {
+                info!("command status: {}", code);
+                info!("command stderr:\n{}", stderr);
+            }
+
+            if !stderr.is_empty() {
+                eprintln!("{}", stderr);
+                // Exit with the command's exit code - this is intentional behavior
+                std::process::exit(code);
+            }
+
+            Ok(stdout)
+        }
+        Ok(None) => {
+            // Timeout expired - kill the process
+            if repo.verbosity > 0 {
+                warn!(
+                    "Command timed out after {} seconds, killing process",
+                    repo.timeout
+                );
+            }
+            child
+                .kill()
+                .map_err(|e| Error::other(format!("Failed to kill timed-out process: {}", e)))?;
+            child.wait().ok(); // Clean up zombie process
+
+            Err(Error::other(format!(
+                "Command timed out after {} seconds",
+                repo.timeout
+            )))
+        }
+        Err(e) => Err(Error::other(format!("Failed to wait on command: {}", e))),
+    }
 }
 
 #[cfg(test)]
@@ -306,6 +399,7 @@ mod repos_tests {
             1,
             false,
             false,
+            0,
         );
 
         assert_eq!("develop", repo.branch);
@@ -325,6 +419,7 @@ mod repos_tests {
             3,
             false,
             false,
+            0,
         );
 
         let res = do_task(&mut repo, None);
@@ -349,6 +444,7 @@ mod repos_tests {
             2,
             false,
             false,
+            0,
         );
 
         repo.clone_repo()?;
@@ -375,6 +471,7 @@ mod repos_tests {
             2,
             false,
             false,
+            0,
         );
 
         repo.clone_repo()?;
@@ -404,6 +501,7 @@ mod repos_tests {
             3,
             false,
             false,
+            0,
         );
 
         repo.clone_repo()?;
@@ -416,5 +514,48 @@ mod repos_tests {
     fn test_no_goa_file() {
         let res = read_goa_file(String::from("/blahdy/.goa"));
         assert_eq!(res, String::from("echo 'no goa file found yet'"));
+    }
+
+    #[test]
+    fn test_do_task_with_timeout() {
+        let mut repo = Repo::new(
+            String::from("file://."),
+            Some(String::from("")),
+            Some(String::from("")),
+            Some(String::from("")),
+            Some(String::from(".")),
+            String::from("develop"),
+            String::from("echo hello"),
+            120,
+            3,
+            false,
+            false,
+            5, // 5 second timeout
+        );
+
+        let res = do_task(&mut repo, None);
+        assert_eq!(String::from("hello\n"), res.unwrap());
+    }
+
+    #[test]
+    fn test_do_task_timeout_exceeded() {
+        let mut repo = Repo::new(
+            String::from("file://."),
+            Some(String::from("")),
+            Some(String::from("")),
+            Some(String::from("")),
+            Some(String::from(".")),
+            String::from("develop"),
+            String::from("sleep 10"),
+            120,
+            1,
+            false,
+            false,
+            1, // 1 second timeout - should fail
+        );
+
+        let res = do_task(&mut repo, None);
+        assert!(res.is_err());
+        assert!(res.unwrap_err().to_string().contains("timed out"));
     }
 }
