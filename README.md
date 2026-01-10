@@ -1,6 +1,17 @@
 # goa
 [GitOps](https://www.redhat.com/en/topics/devops/what-is-gitops) Agent - continuously monitors a remote git repository against local/any change, and performs actions (e.g. executes a provided command) - given a periodicity that is defined as a time intervals.
 
+## Security Warning
+
+**goa executes arbitrary commands** from the `-c` flag or `.goa` files in monitored repositories. Before using goa:
+
+- **Never run as root** - use a dedicated unprivileged user
+- **Only monitor trusted repositories** - a compromised repo can execute malicious code
+- **Use `--timeout`** - prevent runaway commands from consuming resources
+- **Use deploy keys** - prefer read-only deploy keys over personal access tokens
+
+See [SECURITY.md](SECURITY.md) for detailed security considerations and deployment recommendations.
+
 ## Usage
 
 Download a binary from the [releases](https://github.com/kitplummer/goa/releases) for your OS and CPU architecture.  Be sure to make the binary executable on the UNIX-based OSes (e.g. `chmod +x goa`).
