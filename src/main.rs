@@ -27,6 +27,7 @@ fn main() -> anyhow::Result<()> {
             exec_on_start,
             exit_on_first_diff,
             target_path,
+            timeout,
         } => {
             let repo = Repo::new(
                 url,
@@ -40,6 +41,7 @@ fn main() -> anyhow::Result<()> {
                 verbosity,
                 exec_on_start,
                 exit_on_first_diff,
+                timeout,
             );
 
             let log_level = match verbosity {

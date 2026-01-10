@@ -22,6 +22,7 @@ url = "2"
 uuid = { version = "1", features = ["serde", "v4"] }
 openssl-sys = { version = "0.9", features = ["vendored"] }
 run_script = "0.11"
+wait-timeout = "0.2"
 
 [dev-dependencies]
 assert_cmd = "2"
