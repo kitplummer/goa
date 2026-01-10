@@ -29,20 +29,26 @@ fn main() -> anyhow::Result<()> {
             target_path,
             timeout,
         } => {
-            let repo = Repo::new(
-                url,
-                username,
-                token,
-                Some(String::from("initialize")),
-                target_path,
-                branch,
-                command,
-                delay,
-                verbosity,
-                exec_on_start,
-                exit_on_first_diff,
-                timeout,
-            );
+            let mut builder = Repo::builder(&url)
+                .branch(branch)
+                .delay(delay)
+                .verbosity(verbosity)
+                .exec_on_start(exec_on_start)
+                .exit_on_first_diff(exit_on_first_diff)
+                .timeout(timeout)
+                .command(command);
+
+            if let Some(u) = username {
+                builder = builder.username(u);
+            }
+            if let Some(t) = token {
+                builder = builder.token(t);
+            }
+            if let Some(p) = target_path {
+                builder = builder.local_path(p);
+            }
+
+            let repo = builder.build();
 
             let log_level = match verbosity {
                 0 => "error",

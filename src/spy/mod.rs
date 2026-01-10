@@ -7,19 +7,20 @@ use uuid::Uuid;
 use crate::repos::Repo;
 
 pub fn spy_repo(mut repo: Repo) -> Result<()> {
-    if repo.verbosity > 0 {
-        info!("starting to spy {}:{}", repo.url, repo.branch);
+    if repo.verbosity() > 0 {
+        info!("starting to spy {}:{}", repo.url(), repo.branch());
     }
 
-    repo.url = match Url::parse(&repo.url) {
+    // Parse and potentially modify URL with credentials
+    let authenticated_url = match Url::parse(repo.url()) {
         Ok(mut parsed_url) => {
-            if let Some(ref username) = repo.username {
+            if let Some(username) = repo.username() {
                 parsed_url
                     .set_username(username)
                     .map_err(|_| Error::other("Failed to set username in URL"))?;
             }
 
-            if let Some(ref token) = repo.token {
+            if let Some(token) = repo.token() {
                 parsed_url
                     .set_password(Some(token))
                     .map_err(|_| Error::other("Failed to set password in URL"))?;
@@ -30,8 +31,9 @@ pub fn spy_repo(mut repo: Repo) -> Result<()> {
             return Err(Error::other(format!("goa error: invalid URL or path, {}", e)));
         }
     };
+    repo.set_url(authenticated_url);
 
-    if repo.local_path.is_none() {
+    if repo.local_path().is_none() {
         // Get a temp directory to do work in
         let temp = temp_dir();
         let local_path = temp
@@ -41,7 +43,7 @@ pub fn spy_repo(mut repo: Repo) -> Result<()> {
         let tmp_dir_name = format!("{}/{}/", local_path, Uuid::new_v4());
 
         // Set the local repo path in the repo struct
-        repo.local_path = Some(tmp_dir_name);
+        repo.set_local_path(tmp_dir_name);
     }
 
     // Clone the repo and set the local path
