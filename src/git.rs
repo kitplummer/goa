@@ -43,12 +43,18 @@ impl CommitMetadata {
     }
 }
 
+/// Result of a diff check, containing both the annotated commit and the diff itself.
+pub struct DiffResult<'a> {
+    pub commit: git2::AnnotatedCommit<'a>,
+    pub diff: git2::Diff<'a>,
+}
+
 pub fn is_diff<'a>(
     repo: &'a git2::Repository,
     remote_name: &str,
     branch_name: &str,
     verbosity: u8,
-) -> Result<git2::AnnotatedCommit<'a>, git2::Error> {
+) -> Result<DiffResult<'a>, git2::Error> {
     let mut cb = RemoteCallbacks::new();
     let mut remote = repo
         .find_remote(remote_name)
@@ -116,7 +122,8 @@ pub fn is_diff<'a>(
             }
         }
         let fetch_head = repo.find_reference("FETCH_HEAD")?;
-        repo.reference_to_annotated_commit(&fetch_head)
+        let commit = repo.reference_to_annotated_commit(&fetch_head)?;
+        Ok(DiffResult { commit, diff })
     } else {
         let msg = "no diffs, back to sleep.";
         Err(git2::Error::from_str(msg))

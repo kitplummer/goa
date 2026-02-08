@@ -290,3 +290,15 @@ fn test_spy_timeout_flag() -> Result<(), Box<dyn std::error::Error>> {
         .stdout(predicates::str::contains("--timeout <TIMEOUT>"));
     Ok(())
 }
+
+#[test]
+fn test_spy_lei_flags() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cmd = Command::cargo_bin("goa")?;
+    cmd.arg("spy");
+    cmd.arg("--help");
+    cmd.assert()
+        .stdout(predicates::str::contains("--lei-url"))
+        .stdout(predicates::str::contains("--lei-token"))
+        .stdout(predicates::str::contains("LEI"));
+    Ok(())
+}

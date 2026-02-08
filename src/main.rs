@@ -1,9 +1,11 @@
 mod cli;
 mod git;
+mod lei;
 mod radicle;
 mod repos;
 mod spy;
 
+use crate::lei::LeiConfig;
 use crate::radicle::RadicleConfig;
 use crate::repos::Repo;
 use clap::Parser;
@@ -30,6 +32,8 @@ fn main() -> anyhow::Result<()> {
             exit_on_first_diff,
             target_path,
             timeout,
+            lei_url,
+            lei_token,
         } => {
             let mut builder = Repo::builder(&url)
                 .branch(branch)
@@ -48,6 +52,13 @@ fn main() -> anyhow::Result<()> {
             }
             if let Some(p) = target_path {
                 builder = builder.local_path(p);
+            }
+
+            if let Some(lei) = lei_url {
+                builder = builder.lei_config(LeiConfig {
+                    url: lei,
+                    token: lei_token,
+                });
             }
 
             let repo = builder.build();
