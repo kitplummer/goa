@@ -16,6 +16,7 @@ use clokwerk::{Scheduler, TimeUnits};
 use git2::Repository;
 
 use crate::git::{self, CommitMetadata};
+use crate::lei::LeiConfig;
 
 /// Repository configuration for monitoring a git repository.
 /// Use `RepoBuilder` to construct instances.
@@ -32,6 +33,7 @@ pub struct Repo {
     exec_on_start: bool,
     exit_on_first_diff: bool,
     timeout: u64,
+    lei_config: Option<LeiConfig>,
 }
 
 impl Repo {
@@ -94,6 +96,10 @@ impl Repo {
     pub fn timeout(&self) -> u64 {
         self.timeout
     }
+
+    pub fn lei_config(&self) -> Option<&LeiConfig> {
+        self.lei_config.as_ref()
+    }
 }
 
 /// Builder for constructing `Repo` instances with a fluent API.
@@ -110,6 +116,7 @@ pub struct RepoBuilder {
     exec_on_start: bool,
     exit_on_first_diff: bool,
     timeout: u64,
+    lei_config: Option<LeiConfig>,
 }
 
 impl RepoBuilder {
@@ -127,6 +134,7 @@ impl RepoBuilder {
             exec_on_start: false,
             exit_on_first_diff: false,
             timeout: 0,
+            lei_config: None,
         }
     }
 
@@ -193,6 +201,12 @@ impl RepoBuilder {
         self
     }
 
+    /// Set LEI configuration for dependency health analysis
+    pub fn lei_config(mut self, config: LeiConfig) -> Self {
+        self.lei_config = Some(config);
+        self
+    }
+
     /// Build the Repo instance
     pub fn build(self) -> Repo {
         Repo {
@@ -207,6 +221,7 @@ impl RepoBuilder {
             exec_on_start: self.exec_on_start,
             exit_on_first_diff: self.exit_on_first_diff,
             timeout: self.timeout,
+            lei_config: self.lei_config,
         }
     }
 }
@@ -484,8 +499,32 @@ pub fn do_process(repo: &Repo) -> Result<()> {
     }
 
     match git::is_diff(&local_repo, "origin", repo.branch(), repo.verbosity()) {
-        Ok(commit) => {
-            match git::do_merge(&local_repo, repo.branch(), commit, repo.verbosity()) {
+        Ok(diff_result) => {
+            // Check for dependency file changes and trigger LEI if configured
+            if let Some(lei_config) = repo.lei_config() {
+                let dep_changes = crate::lei::find_dependency_changes(&diff_result.diff);
+                if !dep_changes.is_empty() {
+                    if repo.verbosity() > 0 {
+                        info!(
+                            "LEI: dependency files changed: {}",
+                            dep_changes.join(", ")
+                        );
+                    }
+                    match crate::lei::analyze_repo(lei_config, repo.url(), repo.verbosity()) {
+                        Ok(_response) => {
+                            if repo.verbosity() > 0 {
+                                info!("LEI: analysis triggered successfully");
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("goa warning: LEI analysis failed: {}", e);
+                        }
+                    }
+                }
+            }
+
+            match git::do_merge(&local_repo, repo.branch(), diff_result.commit, repo.verbosity())
+            {
                 Ok(metadata) => {
                     // Determine the effective command: use configured command or read from .goa file
                     let effective_command = get_effective_command(repo, local_path);

@@ -36,6 +36,12 @@ pub enum Action {
         /// Timeout for command execution in seconds (0 = no timeout)
         #[arg(long, default_value = "0")]
         timeout: u64,
+        /// LEI (LowEndInsight) API URL for dependency health analysis on change
+        #[arg(long)]
+        lei_url: Option<String>,
+        /// Bearer token for LEI API authentication
+        #[arg(long)]
+        lei_token: Option<String>,
     },
 
     /// Watch a Radicle repository for changes via HTTP API
