@@ -116,17 +116,18 @@ pub fn find_dependency_changes(diff: &git2::Diff) -> Vec<String> {
     let mut changed = Vec::new();
 
     for delta in diff.deltas() {
-        for path_opt in [delta.new_file().path(), delta.old_file().path()] {
-            if let Some(path) = path_opt {
-                let filename = path
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("");
-                let full_path = path.to_string_lossy().to_string();
+        for path in [delta.new_file().path(), delta.old_file().path()]
+            .into_iter()
+            .flatten()
+        {
+            let filename = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("");
+            let full_path = path.to_string_lossy().to_string();
 
-                if is_dep_file(filename) && !changed.contains(&full_path) {
-                    changed.push(full_path);
-                }
+            if is_dep_file(filename) && !changed.contains(&full_path) {
+                changed.push(full_path);
             }
         }
     }
@@ -137,9 +138,8 @@ pub fn find_dependency_changes(diff: &git2::Diff) -> Vec<String> {
 /// Check if a filename matches known dependency file patterns.
 fn is_dep_file(filename: &str) -> bool {
     for pattern in DEP_FILE_NAMES {
-        if pattern.starts_with('*') {
+        if let Some(suffix) = pattern.strip_prefix('*') {
             // Wildcard suffix match (e.g. "*.csproj")
-            let suffix = &pattern[1..];
             if filename.ends_with(suffix) {
                 return true;
             }
