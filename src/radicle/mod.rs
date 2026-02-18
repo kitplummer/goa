@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::io::{Error, Result};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
@@ -9,6 +11,7 @@ use serde::Deserialize;
 
 use clokwerk::{Scheduler, TimeUnits};
 
+use crate::git::sanitize_env_value;
 use crate::repos::{execute_command, read_goa_file};
 
 /// Radicle repository configuration
@@ -149,22 +152,22 @@ pub struct RadicleMetadata {
 impl RadicleMetadata {
     pub fn to_env_vars(&self) -> HashMap<String, String> {
         let mut vars = HashMap::new();
-        vars.insert("GOA_RADICLE_RID".to_string(), self.rid.clone());
-        vars.insert("GOA_RADICLE_URL".to_string(), self.seed_url.clone());
-        vars.insert("GOA_TRIGGER_TYPE".to_string(), self.trigger_type.clone());
-        vars.insert("GOA_COMMIT_OID".to_string(), self.commit_oid.clone());
+        vars.insert("GOA_RADICLE_RID".to_string(), sanitize_env_value(&self.rid));
+        vars.insert("GOA_RADICLE_URL".to_string(), sanitize_env_value(&self.seed_url));
+        vars.insert("GOA_TRIGGER_TYPE".to_string(), sanitize_env_value(&self.trigger_type));
+        vars.insert("GOA_COMMIT_OID".to_string(), sanitize_env_value(&self.commit_oid));
 
         if let Some(ref patch_id) = self.patch_id {
-            vars.insert("GOA_PATCH_ID".to_string(), patch_id.clone());
+            vars.insert("GOA_PATCH_ID".to_string(), sanitize_env_value(patch_id));
         }
         if let Some(ref base) = self.base_commit {
-            vars.insert("GOA_BASE_COMMIT".to_string(), base.clone());
+            vars.insert("GOA_BASE_COMMIT".to_string(), sanitize_env_value(base));
         }
         if let Some(ref state) = self.patch_state {
-            vars.insert("GOA_PATCH_STATE".to_string(), state.clone());
+            vars.insert("GOA_PATCH_STATE".to_string(), sanitize_env_value(state));
         }
         if let Some(ref title) = self.patch_title {
-            vars.insert("GOA_PATCH_TITLE".to_string(), title.clone());
+            vars.insert("GOA_PATCH_TITLE".to_string(), sanitize_env_value(title));
         }
 
         vars
@@ -278,6 +281,14 @@ pub fn watch_radicle(config: RadicleConfig) -> Result<()> {
         }
     }
 
+    // Set up signal handler for graceful shutdown
+    let should_exit = Arc::new(AtomicBool::new(false));
+    let signal_flag = Arc::clone(&should_exit);
+    ctrlc::set_handler(move || {
+        signal_flag.store(true, Ordering::SeqCst);
+    })
+    .map_err(|e| Error::other(format!("Failed to set signal handler: {}", e)))?;
+
     // Set up scheduler
     let mut scheduler = Scheduler::new();
     let delay = config.delay() as u32;
@@ -291,6 +302,10 @@ pub fn watch_radicle(config: RadicleConfig) -> Result<()> {
     // Event loop
     loop {
         scheduler.run_pending();
+        if should_exit.load(Ordering::SeqCst) {
+            info!("shutting down gracefully");
+            return Ok(());
+        }
         thread::sleep(Duration::from_millis(10));
     }
 }

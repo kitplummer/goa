@@ -24,7 +24,7 @@ jobs:
         run: echo "SOURCE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
       - name: Build
-        run: cargo build --all --release && strip target/release/goa && mv target/release/goa target/release/goa_amd64
+        run: cargo build --all --release && mv target/release/goa target/release/goa_amd64
 
       - name: Build Changelog
         id: github_release
@@ -134,7 +134,7 @@ jobs:
           targets: x86_64-apple-darwin
 
       - name: Build for mac
-        run: cargo build --all --release && strip target/release/goa && mv target/release/goa target/release/goa_darwin
+        run: cargo build --all --release && mv target/release/goa target/release/goa_darwin
 
       - name: Release
         uses: svenstaro/upload-release-action@v2

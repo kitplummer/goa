@@ -262,6 +262,13 @@ impl Repo {
         let should_exit = Arc::new(AtomicBool::new(false));
         let exit_flag = Arc::clone(&should_exit);
 
+        // Register signal handler for graceful shutdown
+        let signal_flag = Arc::clone(&should_exit);
+        ctrlc::set_handler(move || {
+            signal_flag.store(true, Ordering::SeqCst);
+        })
+        .map_err(|e| Error::other(format!("Failed to set signal handler: {}", e)))?;
+
         if self.exec_on_start {
             let repo_guard = cloned_repo
                 .lock()
@@ -304,7 +311,7 @@ impl Repo {
         loop {
             scheduler.run_pending();
             if should_exit.load(Ordering::SeqCst) {
-                info!("exiting after first diff processed");
+                info!("shutting down gracefully");
                 return Ok(());
             }
             thread::sleep(Duration::from_millis(10));

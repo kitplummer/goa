@@ -13,10 +13,10 @@ pub enum Action {
         #[arg(short, long, default_value = "120")]
         delay: u16,
         /// Username, owner of the token - required for private repos
-        #[arg(short, long)]
+        #[arg(short, long, env = "GOA_USERNAME")]
         username: Option<String>,
         /// The access token for cloning and fetching of the remote repo
-        #[arg(short, long)]
+        #[arg(short, long, env = "GOA_TOKEN")]
         token: Option<String>,
         /// The command to run when a change is detected
         #[arg(short, long, default_value = "")]
@@ -40,7 +40,7 @@ pub enum Action {
         #[arg(long)]
         lei_url: Option<String>,
         /// Bearer token for LEI API authentication
-        #[arg(long)]
+        #[arg(long, env = "GOA_LEI_TOKEN")]
         lei_token: Option<String>,
     },
 
