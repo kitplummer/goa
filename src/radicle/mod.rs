@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::io::{Error, Result};
+use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
 
@@ -435,7 +436,10 @@ fn execute_radicle_command(config: &RadicleConfig, metadata: &RadicleMetadata) -
         None => {
             // Try to read from local .goa file if local_path is set
             match config.local_path() {
-                Some(path) => read_goa_file(&format!("{}/.goa", path)),
+                Some(path) => {
+                    let goa_path = PathBuf::from(path).join(".goa");
+                    read_goa_file(&goa_path.to_string_lossy())
+                }
                 None => {
                     return Err(Error::other(
                         "No command specified and no local path for .goa file",
