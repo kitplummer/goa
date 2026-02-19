@@ -1,10 +1,11 @@
-.PHONY: build test lint coverage clean release help
+.PHONY: build test test-all lint coverage clean release help
 
 help:
 	@echo "Available targets:"
 	@echo "  build     - Build the project in debug mode"
 	@echo "  release   - Build the project in release mode"
-	@echo "  test      - Run all tests"
+	@echo "  test      - Run fast tests (no network)"
+	@echo "  test-all  - Run all tests including network-dependent ones"
 	@echo "  lint      - Run clippy linter"
 	@echo "  coverage  - Generate test coverage report (requires cargo-llvm-cov)"
 	@echo "  clean     - Clean build artifacts"
@@ -17,6 +18,9 @@ release:
 
 test:
 	cargo test
+
+test-all:
+	cargo test -- --include-ignored
 
 lint:
 	cargo clippy -- -D warnings

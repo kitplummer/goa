@@ -8,11 +8,13 @@ use std::time::Duration;
 
 use reqwest::blocking::Client;
 use serde::Deserialize;
+use tracing::{debug, error, info};
 
 use clokwerk::{Scheduler, TimeUnits};
 
 use crate::git::sanitize_env_value;
 use crate::repos::{execute_command, read_goa_file};
+use crate::retry::retry_with_backoff;
 
 /// Radicle repository configuration
 #[derive(Debug, Clone)]
@@ -261,7 +263,7 @@ pub fn watch_radicle(config: RadicleConfig) -> Result<()> {
     let mut state = WatchState::default();
 
     // Do initial fetch to establish baseline
-    if let Ok(repo_info) = fetch_repo_info(&client, &config) {
+    if let Ok(repo_info) = retry_with_backoff(3, 500, || fetch_repo_info(&client, &config)) {
         state.last_head = Some(repo_info.payloads.project.meta.head.clone());
         if config.verbosity() > 0 {
             info!("initial head: {}", repo_info.payloads.project.meta.head);
@@ -269,7 +271,7 @@ pub fn watch_radicle(config: RadicleConfig) -> Result<()> {
     }
 
     if config.watch_patches() {
-        if let Ok(patches) = fetch_patches(&client, &config) {
+        if let Ok(patches) = retry_with_backoff(3, 500, || fetch_patches(&client, &config)) {
             for patch in patches {
                 if let Some(rev) = patch.revisions.last() {
                     state.last_patch_timestamps.insert(patch.id.clone(), rev.timestamp);
@@ -295,7 +297,7 @@ pub fn watch_radicle(config: RadicleConfig) -> Result<()> {
 
     scheduler.every(delay.seconds()).run(move || {
         if let Err(e) = check_for_changes(&client, &config, &mut state) {
-            eprintln!("goa error: failed to check Radicle repo: {}", e);
+            error!("failed to check Radicle repo: {}", e);
         }
     });
 
@@ -372,7 +374,7 @@ fn check_for_changes(
     }
 
     // Check for head changes (push to main branch)
-    if let Ok(repo_info) = fetch_repo_info(client, config) {
+    if let Ok(repo_info) = retry_with_backoff(3, 500, || fetch_repo_info(client, config)) {
         let current_head = &repo_info.payloads.project.meta.head;
 
         if let Some(ref last_head) = state.last_head {
@@ -399,7 +401,7 @@ fn check_for_changes(
 
     // Check for patch changes
     if config.watch_patches() {
-        if let Ok(patches) = fetch_patches(client, config) {
+        if let Ok(patches) = retry_with_backoff(3, 500, || fetch_patches(client, config)) {
             for patch in patches {
                 // Only process open patches
                 if patch.state.status != "open" {
@@ -486,7 +488,7 @@ fn execute_radicle_command(config: &RadicleConfig, metadata: &RadicleMetadata) -
             Ok(())
         }
         Err(e) => {
-            eprintln!("goa error: command failed: {}", e);
+            error!("command failed: {}", e);
             Ok(()) // Don't stop watching on command failure
         }
     }

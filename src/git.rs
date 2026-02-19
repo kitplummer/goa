@@ -20,6 +20,7 @@ use git2::{
 use std::collections::HashMap;
 use std::io::Write;
 use std::str;
+use tracing::{error, warn};
 
 /// Metadata extracted from a git commit, to be passed to child processes as env vars.
 /// This avoids global env var mutation which is not thread-safe.
@@ -131,7 +132,7 @@ pub fn is_diff<'a>(
     if diff.deltas().len() > 0 {
         if verbosity >= 2 {
             if let Err(e) = display_stats(&diff) {
-                eprintln!("Warning: unable to print diff stats: {}", e);
+                warn!("unable to print diff stats: {}", e);
             }
         }
         let fetch_head = repo.find_reference("FETCH_HEAD")?;
@@ -272,7 +273,7 @@ fn normal_merge(
     let mut idx = repo.merge_trees(&ancestor, &local_tree, &remote_tree, None)?;
 
     if idx.has_conflicts() {
-        eprintln!("Error: Merge conficts detected...");
+        error!("merge conflicts detected");
         repo.checkout_index(Some(&mut idx), None)?;
         return Ok(());
     }
@@ -342,7 +343,7 @@ pub fn do_merge<'a>(
         let commit = find_last_commit(repo)?;
         Ok(extract_commit_metadata(&commit, verbosity))
     } else {
-        eprintln!("Error: Nothing to do?");
+        warn!("merge analysis: nothing to do");
         Ok(CommitMetadata::default())
     }
 }

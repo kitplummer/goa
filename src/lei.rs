@@ -3,6 +3,9 @@ use std::io::{Error, Result};
 
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
+use tracing::info;
+
+use crate::retry::retry_with_backoff;
 
 /// Known dependency/manifest file names across ecosystems.
 const DEP_FILE_NAMES: &[&str] = &[
@@ -171,28 +174,31 @@ pub fn analyze_repo(config: &LeiConfig, repo_url: &str, verbosity: u8) -> Result
         );
     }
 
-    let mut request = client.post(&url).json(&body);
+    let token = config.token.clone();
+    let analyze_resp: AnalyzeResponse = retry_with_backoff(3, 500, || {
+        let mut request = client.post(&url).json(&body);
 
-    if let Some(ref token) = config.token {
-        request = request.header("Authorization", format!("Bearer {}", token));
-    }
+        if let Some(ref token) = token {
+            request = request.header("Authorization", format!("Bearer {}", token));
+        }
 
-    let response = request
-        .send()
-        .map_err(|e| Error::other(format!("LEI request failed: {}", e)))?;
+        let response = request
+            .send()
+            .map_err(|e| Error::other(format!("LEI request failed: {}", e)))?;
 
-    let status = response.status();
-    if !status.is_success() {
-        let body_text = response.text().unwrap_or_default();
-        return Err(Error::other(format!(
-            "LEI API returned status {}: {}",
-            status, body_text
-        )));
-    }
+        let status = response.status();
+        if !status.is_success() {
+            let body_text = response.text().unwrap_or_default();
+            return Err(Error::other(format!(
+                "LEI API returned status {}: {}",
+                status, body_text
+            )));
+        }
 
-    let analyze_resp: AnalyzeResponse = response
-        .json()
-        .map_err(|e| Error::other(format!("Failed to parse LEI response: {}", e)))?;
+        response
+            .json()
+            .map_err(|e| Error::other(format!("Failed to parse LEI response: {}", e)))
+    })?;
 
     if verbosity > 0 {
         log_analysis_summary(&analyze_resp, repo_url);
