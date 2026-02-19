@@ -1,15 +1,20 @@
 use std::collections::HashMap;
 use std::io::{Error, Result};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
 use reqwest::blocking::Client;
 use serde::Deserialize;
+use tracing::{debug, error, info};
 
 use clokwerk::{Scheduler, TimeUnits};
 
+use crate::git::sanitize_env_value;
 use crate::repos::{execute_command, read_goa_file};
+use crate::retry::retry_with_backoff;
 
 /// Radicle repository configuration
 #[derive(Debug, Clone)]
@@ -149,22 +154,22 @@ pub struct RadicleMetadata {
 impl RadicleMetadata {
     pub fn to_env_vars(&self) -> HashMap<String, String> {
         let mut vars = HashMap::new();
-        vars.insert("GOA_RADICLE_RID".to_string(), self.rid.clone());
-        vars.insert("GOA_RADICLE_URL".to_string(), self.seed_url.clone());
-        vars.insert("GOA_TRIGGER_TYPE".to_string(), self.trigger_type.clone());
-        vars.insert("GOA_COMMIT_OID".to_string(), self.commit_oid.clone());
+        vars.insert("GOA_RADICLE_RID".to_string(), sanitize_env_value(&self.rid));
+        vars.insert("GOA_RADICLE_URL".to_string(), sanitize_env_value(&self.seed_url));
+        vars.insert("GOA_TRIGGER_TYPE".to_string(), sanitize_env_value(&self.trigger_type));
+        vars.insert("GOA_COMMIT_OID".to_string(), sanitize_env_value(&self.commit_oid));
 
         if let Some(ref patch_id) = self.patch_id {
-            vars.insert("GOA_PATCH_ID".to_string(), patch_id.clone());
+            vars.insert("GOA_PATCH_ID".to_string(), sanitize_env_value(patch_id));
         }
         if let Some(ref base) = self.base_commit {
-            vars.insert("GOA_BASE_COMMIT".to_string(), base.clone());
+            vars.insert("GOA_BASE_COMMIT".to_string(), sanitize_env_value(base));
         }
         if let Some(ref state) = self.patch_state {
-            vars.insert("GOA_PATCH_STATE".to_string(), state.clone());
+            vars.insert("GOA_PATCH_STATE".to_string(), sanitize_env_value(state));
         }
         if let Some(ref title) = self.patch_title {
-            vars.insert("GOA_PATCH_TITLE".to_string(), title.clone());
+            vars.insert("GOA_PATCH_TITLE".to_string(), sanitize_env_value(title));
         }
 
         vars
@@ -258,7 +263,7 @@ pub fn watch_radicle(config: RadicleConfig) -> Result<()> {
     let mut state = WatchState::default();
 
     // Do initial fetch to establish baseline
-    if let Ok(repo_info) = fetch_repo_info(&client, &config) {
+    if let Ok(repo_info) = retry_with_backoff(3, 500, || fetch_repo_info(&client, &config)) {
         state.last_head = Some(repo_info.payloads.project.meta.head.clone());
         if config.verbosity() > 0 {
             info!("initial head: {}", repo_info.payloads.project.meta.head);
@@ -266,7 +271,7 @@ pub fn watch_radicle(config: RadicleConfig) -> Result<()> {
     }
 
     if config.watch_patches() {
-        if let Ok(patches) = fetch_patches(&client, &config) {
+        if let Ok(patches) = retry_with_backoff(3, 500, || fetch_patches(&client, &config)) {
             for patch in patches {
                 if let Some(rev) = patch.revisions.last() {
                     state.last_patch_timestamps.insert(patch.id.clone(), rev.timestamp);
@@ -278,19 +283,31 @@ pub fn watch_radicle(config: RadicleConfig) -> Result<()> {
         }
     }
 
+    // Set up signal handler for graceful shutdown
+    let should_exit = Arc::new(AtomicBool::new(false));
+    let signal_flag = Arc::clone(&should_exit);
+    ctrlc::set_handler(move || {
+        signal_flag.store(true, Ordering::SeqCst);
+    })
+    .map_err(|e| Error::other(format!("Failed to set signal handler: {}", e)))?;
+
     // Set up scheduler
     let mut scheduler = Scheduler::new();
     let delay = config.delay() as u32;
 
     scheduler.every(delay.seconds()).run(move || {
         if let Err(e) = check_for_changes(&client, &config, &mut state) {
-            eprintln!("goa error: failed to check Radicle repo: {}", e);
+            error!("failed to check Radicle repo: {}", e);
         }
     });
 
     // Event loop
     loop {
         scheduler.run_pending();
+        if should_exit.load(Ordering::SeqCst) {
+            info!("shutting down gracefully");
+            return Ok(());
+        }
         thread::sleep(Duration::from_millis(10));
     }
 }
@@ -357,7 +374,7 @@ fn check_for_changes(
     }
 
     // Check for head changes (push to main branch)
-    if let Ok(repo_info) = fetch_repo_info(client, config) {
+    if let Ok(repo_info) = retry_with_backoff(3, 500, || fetch_repo_info(client, config)) {
         let current_head = &repo_info.payloads.project.meta.head;
 
         if let Some(ref last_head) = state.last_head {
@@ -384,7 +401,7 @@ fn check_for_changes(
 
     // Check for patch changes
     if config.watch_patches() {
-        if let Ok(patches) = fetch_patches(client, config) {
+        if let Ok(patches) = retry_with_backoff(3, 500, || fetch_patches(client, config)) {
             for patch in patches {
                 // Only process open patches
                 if patch.state.status != "open" {
@@ -471,7 +488,7 @@ fn execute_radicle_command(config: &RadicleConfig, metadata: &RadicleMetadata) -
             Ok(())
         }
         Err(e) => {
-            eprintln!("goa error: command failed: {}", e);
+            error!("command failed: {}", e);
             Ok(()) // Don't stop watching on command failure
         }
     }

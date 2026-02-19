@@ -20,6 +20,7 @@ use git2::{
 use std::collections::HashMap;
 use std::io::Write;
 use std::str;
+use tracing::{error, warn};
 
 /// Metadata extracted from a git commit, to be passed to child processes as env vars.
 /// This avoids global env var mutation which is not thread-safe.
@@ -31,14 +32,27 @@ pub struct CommitMetadata {
     pub time: String,
 }
 
+/// Sanitize a string for safe use as an environment variable value.
+/// Strips control characters (null bytes, tabs, carriage returns) and
+/// truncates to a maximum length to prevent abuse via crafted commit metadata.
+pub fn sanitize_env_value(value: &str) -> String {
+    const MAX_ENV_VALUE_LEN: usize = 4096;
+    value
+        .chars()
+        .filter(|c| !c.is_control() || *c == '\n')
+        .take(MAX_ENV_VALUE_LEN)
+        .collect()
+}
+
 impl CommitMetadata {
-    /// Convert to a HashMap suitable for passing to child process environment
+    /// Convert to a HashMap suitable for passing to child process environment.
+    /// Values are sanitized to strip control characters and enforce length limits.
     pub fn to_env_vars(&self) -> HashMap<String, String> {
         let mut vars = HashMap::new();
-        vars.insert("GOA_LAST_COMMIT_ID".to_string(), self.id.clone());
-        vars.insert("GOA_LAST_COMMIT_AUTHOR".to_string(), self.author.clone());
-        vars.insert("GOA_LAST_COMMIT_MESSAGE".to_string(), self.message.clone());
-        vars.insert("GOA_LAST_COMMIT_TIME".to_string(), self.time.clone());
+        vars.insert("GOA_LAST_COMMIT_ID".to_string(), sanitize_env_value(&self.id));
+        vars.insert("GOA_LAST_COMMIT_AUTHOR".to_string(), sanitize_env_value(&self.author));
+        vars.insert("GOA_LAST_COMMIT_MESSAGE".to_string(), sanitize_env_value(&self.message));
+        vars.insert("GOA_LAST_COMMIT_TIME".to_string(), sanitize_env_value(&self.time));
         vars
     }
 }
@@ -118,7 +132,7 @@ pub fn is_diff<'a>(
     if diff.deltas().len() > 0 {
         if verbosity >= 2 {
             if let Err(e) = display_stats(&diff) {
-                eprintln!("Warning: unable to print diff stats: {}", e);
+                warn!("unable to print diff stats: {}", e);
             }
         }
         let fetch_head = repo.find_reference("FETCH_HEAD")?;
@@ -259,7 +273,7 @@ fn normal_merge(
     let mut idx = repo.merge_trees(&ancestor, &local_tree, &remote_tree, None)?;
 
     if idx.has_conflicts() {
-        eprintln!("Error: Merge conficts detected...");
+        error!("merge conflicts detected");
         repo.checkout_index(Some(&mut idx), None)?;
         return Ok(());
     }
@@ -329,7 +343,7 @@ pub fn do_merge<'a>(
         let commit = find_last_commit(repo)?;
         Ok(extract_commit_metadata(&commit, verbosity))
     } else {
-        eprintln!("Error: Nothing to do?");
+        warn!("merge analysis: nothing to do");
         Ok(CommitMetadata::default())
     }
 }
@@ -424,9 +438,29 @@ mod tests {
 
         let vars = metadata.to_env_vars();
 
+        // Newlines are preserved, quotes and ampersands pass through
         assert_eq!(
             vars.get("GOA_LAST_COMMIT_MESSAGE"),
             Some(&"Fix: handle \"special\" chars & newlines\nLine 2".to_string())
         );
+    }
+
+    #[test]
+    fn test_sanitize_env_value_strips_control_chars() {
+        // Null bytes, tabs, carriage returns should be stripped
+        assert_eq!(sanitize_env_value("hello\0world"), "helloworld");
+        assert_eq!(sanitize_env_value("hello\tworld"), "helloworld");
+        assert_eq!(sanitize_env_value("hello\r\nworld"), "hello\nworld");
+        // Newlines are preserved
+        assert_eq!(sanitize_env_value("line1\nline2"), "line1\nline2");
+        // Normal text passes through
+        assert_eq!(sanitize_env_value("normal text"), "normal text");
+    }
+
+    #[test]
+    fn test_sanitize_env_value_truncates() {
+        let long_string = "a".repeat(5000);
+        let sanitized = sanitize_env_value(&long_string);
+        assert_eq!(sanitized.len(), 4096);
     }
 }

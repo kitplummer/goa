@@ -3,6 +3,7 @@ mod git;
 mod lei;
 mod radicle;
 mod repos;
+mod retry;
 mod spy;
 
 use crate::lei::LeiConfig;
@@ -10,11 +11,8 @@ use crate::radicle::RadicleConfig;
 use crate::repos::Repo;
 use clap::Parser;
 use cli::{Action::*, CommandLineArgs};
-
-#[macro_use]
-extern crate log;
-
-use env_logger::{Builder, Env, Target};
+use tracing::info;
+use tracing_subscriber::{fmt, EnvFilter};
 
 fn main() {
     let CommandLineArgs { action } = CommandLineArgs::parse();
@@ -34,6 +32,7 @@ fn main() {
             timeout,
             lei_url,
             lei_token,
+            json,
         } => {
             let mut builder = Repo::builder(&url)
                 .branch(branch)
@@ -63,7 +62,7 @@ fn main() {
 
             let repo = builder.build();
 
-            init_logger(verbosity);
+            init_tracing(verbosity, json);
             info!("starting");
 
             spy::spy_repo(repo)
@@ -78,6 +77,7 @@ fn main() {
             timeout,
             watch_patches,
             local_path,
+            json,
         } => {
             let mut builder = RadicleConfig::builder(&seed_url, &rid)
                 .delay(delay)
@@ -92,7 +92,7 @@ fn main() {
 
             let config = builder.build();
 
-            init_logger(verbosity);
+            init_tracing(verbosity, json);
             info!("starting radicle watcher");
 
             radicle::watch_radicle(config)
@@ -116,14 +116,27 @@ fn parse_exit_code(msg: &str) -> Option<i32> {
     msg[start..].split_whitespace().next()?.parse().ok()
 }
 
-fn init_logger(verbosity: u8) {
+fn init_tracing(verbosity: u8, json: bool) {
     let log_level = match verbosity {
         0 => "error",
         1 => "info",
         _ => "debug",
     };
 
-    Builder::from_env(Env::default().default_filter_or(log_level))
-        .target(Target::Stdout)
-        .init();
+    let env_filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new(log_level));
+
+    if json {
+        fmt::Subscriber::builder()
+            .with_env_filter(env_filter)
+            .with_target(true)
+            .with_thread_ids(true)
+            .json()
+            .init();
+    } else {
+        fmt::Subscriber::builder()
+            .with_env_filter(env_filter)
+            .with_target(false)
+            .init();
+    }
 }

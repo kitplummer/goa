@@ -19,6 +19,7 @@ fn test_spy_repo_command_bad_url() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
+#[ignore] // requires network access to github.com
 fn test_spy_repo_command_missing_auth() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = Command::cargo_bin("goa")?;
     cmd.arg("spy");
@@ -32,6 +33,7 @@ fn test_spy_repo_command_missing_auth() -> Result<(), Box<dyn std::error::Error>
 }
 
 #[test]
+#[ignore] // requires network access to github.com
 fn test_spy_repo_command_bad_auth() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = Command::cargo_bin("goa")?;
     cmd.arg("spy");
@@ -47,6 +49,7 @@ fn test_spy_repo_command_bad_auth() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
+#[ignore] // requires network access to github.com
 fn test_spy_repo_command_bad_command() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = Command::cargo_bin("goa")?;
     cmd.arg("spy");
@@ -55,12 +58,13 @@ fn test_spy_repo_command_bad_command() -> Result<(), Box<dyn std::error::Error>>
     cmd.arg("-c");
     cmd.arg("/notarealcommand");
     cmd.assert()
-        .stderr(predicates::str::contains("/notarealcommand:"));
+        .stdout(predicates::str::contains("/notarealcommand:"));
     cmd.assert().failure().code(127);
     Ok(())
 }
 
 #[test]
+#[ignore] // requires network access to github.com
 fn test_spy_repo_command_bad_command_in_goa_file() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = Command::cargo_bin("goa")?;
     cmd.arg("spy");
@@ -69,12 +73,13 @@ fn test_spy_repo_command_bad_command_in_goa_file() -> Result<(), Box<dyn std::er
     cmd.arg("-v");
     cmd.arg("3");
     cmd.assert()
-        .stderr(predicates::str::contains("/notarealcommand:"));
+        .stdout(predicates::str::contains("/notarealcommand:"));
     cmd.assert().failure().code(127);
     Ok(())
 }
 
 #[test]
+#[ignore] // requires network access to github.com
 fn test_spy_repo_command_bad_branch() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = Command::cargo_bin("goa")?;
     cmd.arg("spy");
@@ -143,6 +148,7 @@ fn test_spy_repo_command_good_start() -> Result<(), Box<dyn std::error::Error>> 
 }
 
 #[test]
+#[ignore] // requires network access to github.com
 fn test_spy_repo_command_catch_diff() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = Command::cargo_bin("goa")?;
     cmd.arg("spy");

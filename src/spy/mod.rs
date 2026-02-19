@@ -1,6 +1,7 @@
 use std::env::temp_dir;
 use std::io::{Error, Result};
 
+use tracing::info;
 use url::Url;
 use uuid::Uuid;
 

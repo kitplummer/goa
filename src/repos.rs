@@ -9,6 +9,7 @@ use std::time::Duration;
 
 // For processing the command
 use run_script::ScriptOptions;
+use tracing::{debug, error, info, warn};
 use wait_timeout::ChildExt;
 
 // Scheduler, and trait for .seconds(), .minutes(), etc.
@@ -18,6 +19,7 @@ use git2::Repository;
 
 use crate::git::{self, CommitMetadata};
 use crate::lei::LeiConfig;
+use crate::retry::retry_with_backoff;
 
 /// Repository configuration for monitoring a git repository.
 /// Use `RepoBuilder` to construct instances.
@@ -236,18 +238,22 @@ impl Repo {
 
         // Some OS-specific non-sense with trailing / in paths
         let local_target = str::replace(local_path, "//", "/");
-        match Repository::clone(&self.url, local_target) {
-            Ok(_repo) => {
-                if self.verbosity > 0 {
-                    info!("cloned remote repo to {}", local_path);
+        let url = self.url.clone();
+        let target = local_target.clone();
+        retry_with_backoff(3, 500, move || {
+            match Repository::clone(&url, &target) {
+                Ok(_repo) => Ok(()),
+                Err(e) => {
+                    let msg = format!("goa error: failed to clone -> {}", e);
+                    Err(Error::other(msg))
                 }
-                Ok(())
             }
-            Err(e) => {
-                let msg = format!("goa error: failed to clone -> {}", e);
-                Err(Error::other(msg))
-            }
+        })?;
+
+        if self.verbosity > 0 {
+            info!("cloned remote repo to {}", local_path);
         }
+        Ok(())
     }
 
     pub fn spy_for_changes(&self) -> Result<()> {
@@ -261,6 +267,13 @@ impl Repo {
         let cloned_repo = Arc::new(Mutex::new(self.clone()));
         let should_exit = Arc::new(AtomicBool::new(false));
         let exit_flag = Arc::clone(&should_exit);
+
+        // Register signal handler for graceful shutdown
+        let signal_flag = Arc::clone(&should_exit);
+        ctrlc::set_handler(move || {
+            signal_flag.store(true, Ordering::SeqCst);
+        })
+        .map_err(|e| Error::other(format!("Failed to set signal handler: {}", e)))?;
 
         if self.exec_on_start {
             let repo_guard = cloned_repo
@@ -290,12 +303,12 @@ impl Repo {
                             }
                         }
                         Err(e) => {
-                            eprintln!("goa error: unable to process repo: {}", e);
+                            error!("unable to process repo: {}", e);
                         }
                     }
                 }
                 Err(e) => {
-                    eprintln!("goa error: failed to acquire lock: {}", e);
+                    error!("failed to acquire lock: {}", e);
                 }
             }
         });
@@ -304,7 +317,7 @@ impl Repo {
         loop {
             scheduler.run_pending();
             if should_exit.load(Ordering::SeqCst) {
-                info!("exiting after first diff processed");
+                info!("shutting down gracefully");
                 return Ok(());
             }
             thread::sleep(Duration::from_millis(10));
@@ -364,9 +377,9 @@ pub fn execute_command(
         }
     }
 
-    // Print stderr but don't exit - many commands write progress to stderr
+    // Log stderr but don't exit - many commands write progress to stderr
     if !error.is_empty() {
-        eprintln!("{}", error);
+        warn!("command stderr: {}", error);
     }
 
     // Return error only if command failed (non-zero exit code)
@@ -427,9 +440,9 @@ fn execute_command_with_timeout(
                 }
             }
 
-            // Print stderr but don't exit - many commands write progress to stderr
+            // Log stderr but don't exit - many commands write progress to stderr
             if !stderr.is_empty() {
-                eprintln!("{}", stderr);
+                warn!("command stderr: {}", stderr);
             }
 
             // Return error only if command failed (non-zero exit code)
@@ -530,7 +543,7 @@ pub fn do_process(repo: &Repo) -> Result<bool> {
                             }
                         }
                         Err(e) => {
-                            eprintln!("goa warning: LEI analysis failed: {}", e);
+                            warn!("LEI analysis failed: {}", e);
                         }
                     }
                 }
@@ -558,12 +571,12 @@ pub fn do_process(repo: &Repo) -> Result<bool> {
                             }
                         }
                         Err(e) => {
-                            eprintln!("goa error: do_task error {}", e);
+                            error!("do_task error: {}", e);
                         }
                     }
                 }
                 Err(e) => {
-                    eprintln!("goa error: do_merge error {}", e);
+                    error!("do_merge error: {}", e);
                 }
             }
         }
@@ -624,9 +637,9 @@ fn do_task(repo: &Repo, command: &str, metadata: Option<&CommitMetadata>) -> Res
         }
     }
 
-    // Print stderr but don't exit - many commands write progress/warnings to stderr
+    // Log stderr but don't exit - many commands write progress/warnings to stderr
     if !error.is_empty() {
-        eprintln!("{}", error);
+        warn!("command stderr: {}", error);
     }
 
     // Return error only if command failed (non-zero exit code)
@@ -690,9 +703,9 @@ fn do_task_with_timeout(
                 }
             }
 
-            // Print stderr but don't exit - many commands write progress/warnings to stderr
+            // Log stderr but don't exit - many commands write progress/warnings to stderr
             if !stderr.is_empty() {
-                eprintln!("{}", stderr);
+                warn!("command stderr: {}", stderr);
             }
 
             // Return error only if command failed (non-zero exit code)
@@ -765,6 +778,7 @@ mod repos_tests {
     }
 
     #[test]
+    #[ignore] // requires network access to github.com
     fn test_do_process() -> Result<()> {
         let temp_dir = std::env::temp_dir();
         let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
@@ -785,6 +799,7 @@ mod repos_tests {
     }
 
     #[test]
+    #[ignore] // requires network access to github.com
     fn test_do_process_no_clone() -> Result<()> {
         let temp_dir = std::env::temp_dir();
         let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
@@ -807,6 +822,7 @@ mod repos_tests {
     }
 
     #[test]
+    #[ignore] // requires network access to github.com
     fn test_do_process_no_command() -> Result<()> {
         let temp_dir = std::env::temp_dir();
         let mut local_path: String = temp_dir.into_os_string().into_string().unwrap();
@@ -859,5 +875,125 @@ mod repos_tests {
         let res = do_task(&repo, "sleep 10", None);
         assert!(res.is_err());
         assert!(res.unwrap_err().to_string().contains("timed out"));
+    }
+
+    #[test]
+    fn test_clone_repo_local_fixture() -> Result<()> {
+        use git2::{Repository as Git2Repo, Signature};
+
+        // Create a local "remote" repo with a commit
+        let remote_dir = std::env::temp_dir().join(format!("goa_test_remote_{}", uuid::Uuid::new_v4()));
+        let remote_repo = Git2Repo::init(&remote_dir)
+            .map_err(|e| Error::other(format!("init remote: {}", e)))?;
+
+        // Create an initial commit so HEAD exists
+        let sig = Signature::now("Test", "test@example.com")
+            .map_err(|e| Error::other(format!("sig: {}", e)))?;
+        let tree_id = remote_repo.index()
+            .and_then(|mut idx| { idx.write_tree() })
+            .map_err(|e| Error::other(format!("tree: {}", e)))?;
+        let tree = remote_repo.find_tree(tree_id)
+            .map_err(|e| Error::other(format!("find tree: {}", e)))?;
+        remote_repo.commit(Some("HEAD"), &sig, &sig, "initial", &tree, &[])
+            .map_err(|e| Error::other(format!("commit: {}", e)))?;
+
+        // Clone into a new directory
+        let clone_dir = std::env::temp_dir().join(format!("goa_test_clone_{}", uuid::Uuid::new_v4()));
+        let repo = Repo::builder(format!("file://{}", remote_dir.display()))
+            .local_path(clone_dir.to_string_lossy().to_string())
+            .branch("master")
+            .build();
+
+        repo.clone_repo()?;
+
+        // Verify the clone exists
+        assert!(clone_dir.join(".git").exists());
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(&remote_dir);
+        let _ = std::fs::remove_dir_all(&clone_dir);
+        Ok(())
+    }
+
+    #[test]
+    fn test_do_process_local_fixture() -> Result<()> {
+        use git2::{Repository as Git2Repo, Signature};
+
+        // Create a bare "remote" repo
+        let remote_dir = std::env::temp_dir().join(format!("goa_test_remote_{}", uuid::Uuid::new_v4()));
+        let remote_repo = Git2Repo::init_bare(&remote_dir)
+            .map_err(|e| Error::other(format!("init bare: {}", e)))?;
+
+        // Create an initial commit in the bare repo
+        let sig = Signature::now("Test", "test@example.com")
+            .map_err(|e| Error::other(format!("sig: {}", e)))?;
+        let tree_id = remote_repo.treebuilder(None)
+            .and_then(|tb| tb.write())
+            .map_err(|e| Error::other(format!("tree: {}", e)))?;
+        let tree = remote_repo.find_tree(tree_id)
+            .map_err(|e| Error::other(format!("find tree: {}", e)))?;
+        remote_repo.commit(Some("refs/heads/main"), &sig, &sig, "initial", &tree, &[])
+            .map_err(|e| Error::other(format!("commit: {}", e)))?;
+
+        // Clone it locally
+        let clone_dir = std::env::temp_dir().join(format!("goa_test_clone_{}", uuid::Uuid::new_v4()));
+        Git2Repo::clone(&format!("file://{}", remote_dir.display()), &clone_dir)
+            .map_err(|e| Error::other(format!("clone: {}", e)))?;
+
+        let repo = Repo::builder(format!("file://{}", remote_dir.display()))
+            .local_path(clone_dir.to_string_lossy().to_string())
+            .branch("main")
+            .command("echo tested")
+            .verbosity(2)
+            .build();
+
+        // No new commits on remote, so no diff — returns Ok(false)
+        assert_eq!(do_process(&repo)?, false);
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(&remote_dir);
+        let _ = std::fs::remove_dir_all(&clone_dir);
+        Ok(())
+    }
+
+    #[test]
+    fn test_read_goa_file_from_fixture() -> Result<()> {
+        let dir = std::env::temp_dir().join(format!("goa_test_goafile_{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir)?;
+        let goa_path = dir.join(".goa");
+        std::fs::write(&goa_path, "echo fixture_test")?;
+
+        let contents = read_goa_file(&goa_path.to_string_lossy());
+        assert_eq!(contents, "echo fixture_test");
+
+        let _ = std::fs::remove_dir_all(&dir);
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_effective_command_with_command() {
+        let repo = Repo::builder("file://.")
+            .local_path(".")
+            .command("echo explicit")
+            .build();
+        assert_eq!(get_effective_command(&repo, "."), "echo explicit");
+    }
+
+    #[test]
+    fn test_get_effective_command_from_goa_file() -> Result<()> {
+        let dir = std::env::temp_dir().join(format!("goa_test_eff_{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir)?;
+        let goa_path = dir.join(".goa");
+        std::fs::write(&goa_path, "echo from_goa")?;
+
+        let repo = Repo::builder("file://.")
+            .local_path(dir.to_string_lossy().to_string())
+            .build();
+
+        let cmd = get_effective_command(&repo, &dir.to_string_lossy());
+        assert_eq!(cmd, "echo from_goa");
+
+        let _ = std::fs::remove_dir_all(&dir);
+        Ok(())
     }
 }
