@@ -17,6 +17,8 @@ jobs:
     permissions:
       # Needed to upload the results to code-scanning dashboard.
       security-events: write
+      # Needed for OIDC token for Sigstore signing (publish_results)
+      id-token: write
       actions: read
       contents: read
 
