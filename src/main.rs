@@ -16,10 +16,10 @@ extern crate log;
 
 use env_logger::{Builder, Env, Target};
 
-fn main() -> anyhow::Result<()> {
+fn main() {
     let CommandLineArgs { action } = CommandLineArgs::parse();
 
-    match action {
+    let result = match action {
         Spy {
             url,
             branch,
@@ -97,9 +97,23 @@ fn main() -> anyhow::Result<()> {
 
             radicle::watch_radicle(config)
         }
-    }?;
+    };
 
-    Ok(())
+    if let Err(e) = result {
+        let msg = e.to_string();
+        eprintln!("{}", msg);
+
+        // Forward the child process exit code if available
+        let code = parse_exit_code(&msg).unwrap_or(1);
+        std::process::exit(code);
+    }
+}
+
+/// Extract exit code from error messages containing "Command exited with code 127"
+fn parse_exit_code(msg: &str) -> Option<i32> {
+    let marker = "Command exited with code ";
+    let start = msg.find(marker)? + marker.len();
+    msg[start..].split_whitespace().next()?.parse().ok()
 }
 
 fn init_logger(verbosity: u8) {

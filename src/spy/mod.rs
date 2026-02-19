@@ -35,15 +35,15 @@ pub fn spy_repo(mut repo: Repo) -> Result<()> {
 
     if repo.local_path().is_none() {
         // Get a temp directory to do work in
-        let temp = temp_dir();
-        let local_path = temp
-            .into_os_string()
-            .into_string()
-            .map_err(|_| Error::other("Failed to convert temp directory path to string"))?;
-        let tmp_dir_name = format!("{}/{}/", local_path, Uuid::new_v4());
+        let tmp_dir_name = temp_dir()
+            .join(Uuid::new_v4().to_string());
+        let local_path = tmp_dir_name
+            .to_str()
+            .ok_or_else(|| Error::other("Failed to convert temp directory path to string"))?
+            .to_string();
 
         // Set the local repo path in the repo struct
-        repo.set_local_path(tmp_dir_name);
+        repo.set_local_path(local_path);
     }
 
     // Clone the repo and set the local path

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::io::{Error, Read as IoRead, Result};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -258,6 +259,8 @@ impl Repo {
         let mut scheduler = Scheduler::new();
         let delay = self.delay as u32;
         let cloned_repo = Arc::new(Mutex::new(self.clone()));
+        let should_exit = Arc::new(AtomicBool::new(false));
+        let exit_flag = Arc::clone(&should_exit);
 
         if self.exec_on_start {
             let repo_guard = cloned_repo
@@ -280,8 +283,15 @@ impl Repo {
         scheduler.every(delay.seconds()).run(move || {
             match cloned_repo.lock() {
                 Ok(repo_guard) => {
-                    if let Err(e) = do_process(&repo_guard) {
-                        eprintln!("goa error: unable to process repo: {}", e);
+                    match do_process(&repo_guard) {
+                        Ok(should_stop) => {
+                            if should_stop {
+                                exit_flag.store(true, Ordering::SeqCst);
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("goa error: unable to process repo: {}", e);
+                        }
                     }
                 }
                 Err(e) => {
@@ -293,6 +303,10 @@ impl Repo {
         // Manually run the scheduler in an event loop
         loop {
             scheduler.run_pending();
+            if should_exit.load(Ordering::SeqCst) {
+                info!("exiting after first diff processed");
+                return Ok(());
+            }
             thread::sleep(Duration::from_millis(10));
         }
     }
@@ -447,7 +461,10 @@ fn execute_command_with_timeout(
 fn get_effective_command(repo: &Repo, local_path: &str) -> String {
     match repo.command() {
         Some(cmd) => cmd.to_string(),
-        None => read_goa_file(&format!("{}/.goa", local_path)),
+        None => {
+            let goa_path = PathBuf::from(local_path).join(".goa");
+            read_goa_file(&goa_path.to_string_lossy())
+        }
     }
 }
 
@@ -470,22 +487,18 @@ pub fn do_process_once(repo: &Repo) -> Result<()> {
         debug!("effective command: {}", effective_command);
     }
 
-    match do_task(repo, &effective_command, Some(&metadata)) {
-        Ok(output) => {
-            if repo.verbosity() > 0 {
-                info!("command stdout: {}", output);
-            } else {
-                println!("{output}");
-            }
-        }
-        Err(e) => {
-            eprintln!("goa error: do_task error {}", e);
-        }
+    let output = do_task(repo, &effective_command, Some(&metadata))?;
+    if repo.verbosity() > 0 {
+        info!("command stdout: {}", output);
+    } else {
+        println!("{output}");
     }
     Ok(())
 }
 
-pub fn do_process(repo: &Repo) -> Result<()> {
+/// Process a single check cycle. Returns Ok(true) if the caller should stop
+/// (e.g., exit_on_first_diff), Ok(false) to continue, or Err on fatal errors.
+pub fn do_process(repo: &Repo) -> Result<bool> {
     let local_path = repo
         .local_path()
         .ok_or_else(|| Error::other("local_path is not set"))?;
@@ -541,8 +554,7 @@ pub fn do_process(repo: &Repo) -> Result<()> {
                             }
 
                             if repo.exit_on_first_diff() {
-                                // Intentional exit after first diff processed
-                                std::process::exit(0);
+                                return Ok(true);
                             }
                         }
                         Err(e) => {
@@ -563,7 +575,7 @@ pub fn do_process(repo: &Repo) -> Result<()> {
         }
     }
 
-    Ok(())
+    Ok(false)
 }
 
 /// Execute a command with optional commit metadata passed as env vars to child process.
@@ -607,13 +619,19 @@ fn do_task(repo: &Repo, command: &str, metadata: Option<&CommitMetadata>) -> Res
 
     if repo.verbosity() > 1 {
         info!("command status: {}", code);
-        info!("command stderr:\n{}", error);
+        if !error.is_empty() {
+            info!("command stderr:\n{}", error);
+        }
     }
 
+    // Print stderr but don't exit - many commands write progress/warnings to stderr
     if !error.is_empty() {
         eprintln!("{}", error);
-        // Exit with the command's exit code - this is intentional behavior
-        std::process::exit(code);
+    }
+
+    // Return error only if command failed (non-zero exit code)
+    if code != 0 {
+        return Err(Error::other(format!("Command exited with code {}", code)));
     }
 
     Ok(output)
@@ -667,13 +685,19 @@ fn do_task_with_timeout(
 
             if repo.verbosity() > 1 {
                 info!("command status: {}", code);
-                info!("command stderr:\n{}", stderr);
+                if !stderr.is_empty() {
+                    info!("command stderr:\n{}", stderr);
+                }
             }
 
+            // Print stderr but don't exit - many commands write progress/warnings to stderr
             if !stderr.is_empty() {
                 eprintln!("{}", stderr);
-                // Exit with the command's exit code - this is intentional behavior
-                std::process::exit(code);
+            }
+
+            // Return error only if command failed (non-zero exit code)
+            if code != 0 {
+                return Err(Error::other(format!("Command exited with code {}", code)));
             }
 
             Ok(stdout)
@@ -756,7 +780,7 @@ mod repos_tests {
 
         repo.clone_repo()?;
 
-        assert_eq!(do_process(&repo)?, ());
+        assert_eq!(do_process(&repo)?, false);
         Ok(())
     }
 
@@ -798,7 +822,7 @@ mod repos_tests {
 
         repo.clone_repo()?;
 
-        assert_eq!(do_process(&repo)?, ());
+        assert_eq!(do_process(&repo)?, false);
         Ok(())
     }
 
