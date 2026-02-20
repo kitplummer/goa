@@ -1,7 +1,6 @@
 name: Release
 
-permissions:
-  contents: write
+permissions: read-all
 
 on:
   push:
@@ -11,13 +10,15 @@ on:
 jobs:
   build-ubuntu-latest:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Install latest rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7 # stable
 
       - name: Get tag name
         id: tag_name
@@ -28,12 +29,12 @@ jobs:
 
       - name: Build Changelog
         id: github_release
-        uses: mikepenz/release-changelog-builder-action@v5
+        uses: mikepenz/release-changelog-builder-action@c9dc8369bccbc41e0ac887f8fd674f5925d315f7 # v5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Release
-        uses: svenstaro/upload-release-action@v2
+        uses: svenstaro/upload-release-action@6b7fa9f267e90b50a19fef07b3596790bb941741 # v2
         with:
           release_name: ${{ steps.tag_name.outputs.SOURCE_TAG }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
@@ -45,13 +46,15 @@ jobs:
 
   build-aarch64-linux:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Install latest rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7 # stable
         with:
           targets: aarch64-unknown-linux-gnu
 
@@ -63,7 +66,7 @@ jobs:
           cross build --target=aarch64-unknown-linux-gnu --release && mv target/aarch64-unknown-linux-gnu/release/goa target/aarch64-unknown-linux-gnu/release/goa_aarch64
 
       - name: Release
-        uses: svenstaro/upload-release-action@v2
+        uses: svenstaro/upload-release-action@6b7fa9f267e90b50a19fef07b3596790bb941741 # v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: target/aarch64-unknown-linux-gnu/release/goa_aarch64
@@ -73,13 +76,15 @@ jobs:
 
   build-arm-linux:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Install latest rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7 # stable
         with:
           targets: arm-unknown-linux-gnueabihf
 
@@ -91,7 +96,7 @@ jobs:
           cross build --target=arm-unknown-linux-gnueabihf --release && mv target/arm-unknown-linux-gnueabihf/release/goa target/arm-unknown-linux-gnueabihf/release/goa_arm
 
       - name: Release
-        uses: svenstaro/upload-release-action@v2
+        uses: svenstaro/upload-release-action@6b7fa9f267e90b50a19fef07b3596790bb941741 # v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: target/arm-unknown-linux-gnueabihf/release/goa_arm
@@ -101,19 +106,21 @@ jobs:
 
   build-win:
     runs-on: windows-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Install latest rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7 # stable
 
       - name: Build
         run: cargo build --all --release
 
       - name: Release
-        uses: svenstaro/upload-release-action@v2
+        uses: svenstaro/upload-release-action@6b7fa9f267e90b50a19fef07b3596790bb941741 # v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: target/release/goa.exe
@@ -123,13 +130,15 @@ jobs:
 
   build-mac:
     runs-on: macos-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Install latest rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7 # stable
         with:
           targets: x86_64-apple-darwin
 
@@ -137,7 +146,7 @@ jobs:
         run: cargo build --all --release && mv target/release/goa target/release/goa_darwin
 
       - name: Release
-        uses: svenstaro/upload-release-action@v2
+        uses: svenstaro/upload-release-action@6b7fa9f267e90b50a19fef07b3596790bb941741 # v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: target/release/goa_darwin

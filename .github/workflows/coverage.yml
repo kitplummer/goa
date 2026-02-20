@@ -12,15 +12,15 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7 # stable
         with:
           components: llvm-tools-preview
-      - uses: taiki-e/install-action@cargo-llvm-cov
+      - uses: taiki-e/install-action@3129e4e510409181151d4a2b5a23cddc723a7015 # cargo-llvm-cov
       - name: Generate code coverage
         run: cargo llvm-cov --all-features --lcov --output-path lcov.info
       - name: Coveralls upload
-        uses: coverallsapp/github-action@v2
+        uses: coverallsapp/github-action@5cbfd81b66ca5d10c19b062c04de0199c215fb6e # v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           file: lcov.info
